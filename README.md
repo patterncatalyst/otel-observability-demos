@@ -23,6 +23,7 @@ otel-observability-demos/
 ├── demo-04-gc-pauses/          # GC pauses showing as trace gaps
 ├── demo-05-aot-coldstart/      # JDK 25 + AOTCache cold-start (~5x speedup)
 ├── diagrams/                   # Excalidraw source files (08–16)
+├── docs/                       # Long-form docs (reconciliation plan, etc.)
 ├── presentation/               # reveal.js slide deck + speaker notes
 └── tools/                      # build-diagrams.py and other helpers
 ```
@@ -78,6 +79,7 @@ Every demo follows the same shape:
 
 - `BENCHMARKS.md` — verified numbers used in slides
 - `PREREQUISITES.md` — host-side setup (Fedora, macOS)
+- `docs/RECONCILIATION-PLAN.md` — step-by-step verification walkthrough for talk-day prep
 - `presentation/PRESENTER-GUIDE.md` — slide-by-slide notes
 
 ## Talk Title
