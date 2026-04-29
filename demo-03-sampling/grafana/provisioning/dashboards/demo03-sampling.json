@@ -23,7 +23,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (status) (rate(http_server_request_duration_seconds_count[1m]))",
+          "expr": "sum by (status) (rate(http_server_request_duration_seconds_count[5m]))",
           "legendFormat": "status {{status}}",
           "refId": "A"
         }
@@ -47,7 +47,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_request_duration_seconds_bucket[5m])))",
           "legendFormat": "p95 {{uri}}",
           "refId": "A"
         }
@@ -71,19 +71,19 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(otelcol_receiver_accepted_spans[1m])",
+          "expr": "rate(otelcol_receiver_accepted_spans[5m])",
           "legendFormat": "received  (in)",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(otelcol_exporter_sent_spans[1m])",
+          "expr": "rate(otelcol_exporter_sent_spans[5m])",
           "legendFormat": "exported  (out)",
           "refId": "B"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "rate(otelcol_processor_dropped_spans[1m])",
+          "expr": "rate(otelcol_processor_dropped_spans[5m])",
           "legendFormat": "dropped",
           "refId": "C"
         }
