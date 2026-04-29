@@ -1,0 +1,56 @@
+# config-head.yaml — head sampling mode
+#
+# In this mode the APP is doing the sampling (OTEL_TRACES_SAMPLER=parentbased_traceidratio,
+# OTEL_TRACES_SAMPLER_ARG=0.05). The Collector just forwards everything it receives.
+#
+# Result: ~5% of traces survive. Decision is made before the trace runs, so a slow or
+# errored trace is just as likely to be dropped as a healthy one. Cheap, fast, blind.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # Add a resource attribute so we can distinguish modes in the dashboard
+  resource:
+    attributes:
+      - key: sampling.mode
+        value: "head"
+        action: upsert
+
+exporters:
+  # Forward all received spans to lgtm's built-in OTLP receiver
+  otlphttp:
+    endpoint: http://lgtm:4318
+  # Same for metrics + logs
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]

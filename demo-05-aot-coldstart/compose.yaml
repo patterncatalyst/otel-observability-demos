@@ -1,0 +1,83 @@
+# Demo 05 — AOT cold start comparison
+# Stack: otel-lgtm + service-classic + service-aot (both on JDK 25)
+
+name: otel-demo-05
+
+services:
+
+  lgtm:
+    image: docker.io/grafana/otel-lgtm:0.8.1
+    container_name: demo05-lgtm
+    ports:
+      - "3005:3000"
+      - "44317:4317"
+      - "44318:4318"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning/datasources:/otel-lgtm/grafana/conf/provisioning/datasources:Z
+      - ./grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards:Z
+    tmpfs:
+      - /tmp
+    user: "0"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  service-classic:
+    build:
+      context: ./service-classic
+      dockerfile: Containerfile
+    container_name: demo05-classic
+    ports:
+      - "8085:8080"
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "service-classic"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,startup.mode=classic"
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/app/opentelemetry-javaagent.jar
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+
+  service-aot:
+    build:
+      context: ./service-aot
+      dockerfile: Containerfile
+    container_name: demo05-aot
+    ports:
+      - "8086:8080"
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "service-aot"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,startup.mode=aot-cache"
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/app/opentelemetry-javaagent.jar
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+        -XX:AOTCache=/app/app.aot
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s

@@ -1,0 +1,88 @@
+# config-tail.yaml — tail sampling mode
+#
+# In this mode the APP sends 100% of traces (OTEL_TRACES_SAMPLER_ARG=1.0).
+# The Collector buffers each trace until all spans arrive, then applies policies:
+#   - any error → keep
+#   - any slow span (>1s) → keep
+#   - everything else → keep 5%
+#
+# Result: every error preserved, every slow trace preserved, 5% of healthy traces
+# kept for sanity baselines. Pays in Collector RAM.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Tail sampling — buffers traces by traceID, decides at trace completion.
+  tail_sampling:
+    # How long to wait after the last span of a trace before deciding.
+    # Trade-off: longer = more accurate, more RAM and more "trailing" delay.
+    decision_wait: 10s
+
+    # Cap on traces buffered simultaneously. Production tuning needed.
+    num_traces: 50000
+
+    # Cap on buffered traces created per second (rate limiter).
+    expected_new_traces_per_sec: 1000
+
+    policies:
+      # Policy 1: keep any trace containing an error
+      - name: errors-policy
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+
+      # Policy 2: keep any trace that has a span longer than 1s
+      - name: slow-traces-policy
+        type: latency
+        latency:
+          threshold_ms: 1000
+
+      # Policy 3: keep 5% of everything else
+      - name: baseline-policy
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 5
+
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  resource:
+    attributes:
+      - key: sampling.mode
+        value: "tail"
+        action: upsert
+
+exporters:
+  otlphttp:
+    endpoint: http://lgtm:4318
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      # Order matters: tail_sampling first, then batch.
+      processors: [tail_sampling, resource, batch]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp]

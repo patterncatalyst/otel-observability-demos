@@ -1,0 +1,80 @@
+# Demo 03 — head vs tail sampling
+# Stack: service → standalone OTel Collector → otel-lgtm
+
+name: otel-demo-03
+
+services:
+
+  lgtm:
+    image: docker.io/grafana/otel-lgtm:0.8.1
+    container_name: demo03-lgtm
+    ports:
+      - "3003:3000"     # Grafana
+    expose:
+      - "4317"          # OTLP gRPC (internal — Collector forwards here)
+      - "4318"          # OTLP HTTP
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning/datasources:/otel-lgtm/grafana/conf/provisioning/datasources:Z
+      - ./grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards:Z
+    tmpfs:
+      - /tmp
+    user: "0"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  collector:
+    image: docker.io/otel/opentelemetry-collector-contrib:0.114.0
+    container_name: demo03-collector
+    ports:
+      - "24317:4317"    # OTLP gRPC (host-exposed for service to push to)
+      - "24318:4318"    # OTLP HTTP
+      - "28888:8888"    # Collector's own metrics endpoint
+    volumes:
+      # Active config is symlinked into ./otelcol/config.yaml by demo.sh
+      - ./otelcol:/etc/otelcol:Z
+    command: ["--config=/etc/otelcol/config.yaml"]
+    depends_on:
+      lgtm:
+        condition: service_healthy
+
+  service:
+    build:
+      context: ./service
+      dockerfile: Containerfile
+    container_name: demo03-service
+    ports:
+      - "8083:8080"
+    environment:
+      # Push to the standalone Collector, NOT directly to lgtm
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "demo03-service"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0"
+      # The sampling probability is read from env. demo.sh swaps it between modes.
+      # 1.0 = send all, let the Collector decide (tail mode)
+      # 0.05 = head sample at the app (head mode)
+      OTEL_TRACES_SAMPLER: "${OTEL_TRACES_SAMPLER:-parentbased_traceidratio}"
+      OTEL_TRACES_SAMPLER_ARG: "${OTEL_TRACES_SAMPLER_ARG:-1.0}"
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/app/opentelemetry-javaagent.jar
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    depends_on:
+      collector:
+        condition: service_started
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s

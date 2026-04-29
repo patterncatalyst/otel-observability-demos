@@ -1,0 +1,77 @@
+# service-aot — Spring Boot 4.0.x on JDK 25 with AOT cache.
+#
+# Four stages:
+#   1. build       — Maven package
+#   2. train       — boot once with -XX:AOTMode=record to capture .aotconf
+#   3. assemble    — convert .aotconf to .aot binary cache
+#   4. runtime     — ship the runtime image with the AOT cache
+#
+# The training stage adds ~30s to the build but cuts cold start ~5x at runtime.
+
+# ---- Stage 1: Build -----------------------------------------------------
+FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS build
+USER root
+WORKDIR /build
+COPY pom.xml ./
+COPY src ./src
+RUN mvn -B -ntp clean package -Dmaven.test.skip=true
+
+# ---- Stage 2: AOT training run -----------------------------------------
+# Boot the app long enough to load the framework, hit health, then exit.
+# Record mode captures class metadata and hot methods into app.aotconf.
+FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS train
+USER root
+WORKDIR /app
+COPY --from=build /build/target/*.jar /app/app.jar
+
+# Training launcher: start app in record mode, give it a few seconds to load,
+# kill -SIGTERM so Spring Boot does a clean shutdown that flushes AOT data.
+RUN <<EOF
+set -e
+java \
+  -XX:AOTMode=record \
+  -XX:AOTConfiguration=/app/app.aotconf \
+  -Dspring.main.lazy-initialization=false \
+  -jar /app/app.jar &
+APP_PID=$!
+# Wait for context refresh
+sleep 8
+# Hit health if up, then terminate
+curl -sf http://localhost:8080/actuator/health >/dev/null 2>&1 || true
+kill -TERM $APP_PID
+wait $APP_PID 2>/dev/null || true
+test -s /app/app.aotconf && echo "AOT config recorded ($(wc -c < /app/app.aotconf) bytes)"
+EOF
+
+# ---- Stage 3: AOT cache assembly ---------------------------------------
+# Convert the recorded config into the binary cache using the same JAR.
+FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS assemble
+USER root
+WORKDIR /app
+COPY --from=build /build/target/*.jar /app/app.jar
+COPY --from=train /app/app.aotconf /app/app.aotconf
+
+RUN java \
+  -XX:AOTMode=create \
+  -XX:AOTConfiguration=/app/app.aotconf \
+  -XX:AOTCache=/app/app.aot \
+  -jar /app/app.jar \
+  && test -s /app/app.aot \
+  && echo "AOT cache assembled ($(du -h /app/app.aot | cut -f1))"
+
+# ---- Stage 4: Runtime ---------------------------------------------------
+FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24
+USER root
+WORKDIR /app
+
+ARG OTEL_AGENT_VERSION=2.10.0
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+RUN chmod 0644 /app/opentelemetry-javaagent.jar
+
+COPY --from=build /build/target/*.jar /app/app.jar
+COPY --from=assemble /app/app.aot /app/app.aot
+
+USER 185
+EXPOSE 8080
+# AOTCache flag is added via JAVA_TOOL_OPTIONS in compose.yaml
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

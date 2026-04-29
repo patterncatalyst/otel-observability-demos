@@ -1,0 +1,146 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "GC pause durations as a percentile timeseries — broken down by GC mode (set in resource attribute). Compare runs across GCs by selecting time windows.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null   },
+              { "color": "yellow", "value": 0.010  },
+              { "color": "orange", "value": 0.050  },
+              { "color": "red",    "value": 0.100  }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "exemplar": true,
+          "expr": "histogram_quantile(0.50, sum by (le, gc_mode) (rate(jvm_gc_pause_seconds_bucket[1m])))",
+          "legendFormat": "p50 — {{gc_mode}}",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "exemplar": true,
+          "expr": "histogram_quantile(0.95, sum by (le, gc_mode) (rate(jvm_gc_pause_seconds_bucket[1m])))",
+          "legendFormat": "p95 — {{gc_mode}}",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "exemplar": true,
+          "expr": "histogram_quantile(0.99, sum by (le, gc_mode) (rate(jvm_gc_pause_seconds_bucket[1m])))",
+          "legendFormat": "p99 — {{gc_mode}}",
+          "refId": "C"
+        }
+      ],
+      "title": "JVM GC pause percentiles (lower is better; with trace exemplars)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "HTTP request latency for /allocate. Notice the spikes correlate with the GC pause spikes above — that's the same dashboard showing the same event from two angles.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "exemplar": true,
+          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket[1m])))",
+          "legendFormat": "p99 {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP p99 latency (with exemplars — click dot to jump to trace)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Heap usage drives GC. Watch this saw-tooth in time with the pause spikes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 25 },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (id) (jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "{{id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Heap usage by region",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Counter of GC events by cause. Frequent 'Allocation Failure' = young gen filling fast.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80 },
+          "unit": "ops"
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (action, cause) (rate(jvm_gc_pause_seconds_count[1m]))",
+          "legendFormat": "{{action}} / {{cause}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GC events / sec by action and cause",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["demo-04", "otel", "gc", "shenandoah"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Demo 04 — GC Pauses as Trace Gaps",
+  "uid": "demo04-gc",
+  "version": 1,
+  "weekStart": ""
+}

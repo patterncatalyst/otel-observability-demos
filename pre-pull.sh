@@ -15,9 +15,11 @@ fail() { echo "${RED}  ✗${RST} $1" >&2; }
 
 IMAGES=(
   "docker.io/grafana/otel-lgtm:0.8.1"
+  "docker.io/otel/opentelemetry-collector-contrib:0.114.0"
   "registry.access.redhat.com/ubi9/openjdk-21-runtime:1.21-1"
   "registry.access.redhat.com/ubi9/openjdk-21:1.21-1"
-  "registry.access.redhat.com/ubi9/openjdk-25:1.25-1"
+  "registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24"
+  "registry.access.redhat.com/ubi9/openjdk-25:1.24"
 )
 
 step "Pulling demo images (${#IMAGES[@]} total)"
@@ -33,7 +35,7 @@ done
 
 step "Image inventory"
 podman images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" \
-  | grep -E "(otel-lgtm|openjdk-21|openjdk-25)" || true
+  | grep -E "(otel-lgtm|opentelemetry-collector|openjdk-21|openjdk-25)" || true
 
 step "Done"
 ok "All images pulled. You're ready to demo."

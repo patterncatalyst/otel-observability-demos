@@ -16,9 +16,9 @@ fail()  { echo "${RED}  ✗${RST} $1" >&2; }
 DEMOS=(
   "demo-01-auto-vs-manual:3001"
   "demo-02-correlation:3002"
-  # "demo-03-sampling:3003"
-  # "demo-04-gc-pauses:3004"
-  # "demo-05-aot-coldstart:3005"
+  "demo-03-sampling:3003"
+  "demo-04-gc-pauses:3004"
+  "demo-05-aot-coldstart:3005"
 )
 
 PASS=0
@@ -35,6 +35,12 @@ for entry in "${DEMOS[@]}"; do
   fi
 
   pushd "$demo_dir" >/dev/null
+
+  # Special case: demo-03-sampling needs an active config.yaml (head or tail).
+  # We use the head config for verify; the demo.sh manages the swap during real runs.
+  if [[ "$demo_dir" == "demo-03-sampling" && -f otelcol/config-head.yaml && ! -f otelcol/config.yaml ]]; then
+    cp otelcol/config-head.yaml otelcol/config.yaml
+  fi
 
   if [[ ! -f compose.yaml ]]; then
     fail "compose.yaml missing"

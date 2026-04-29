@@ -17,13 +17,14 @@ Companion repo for the talk *"Three Signals, One Story: Cloud-Native Observabili
 
 ```
 otel-observability-demos/
-├── demo-01-auto-vs-manual/    # Auto vs manual instrumentation (60-second demo)
+├── demo-01-auto-vs-manual/    # Auto vs manual instrumentation
 ├── demo-02-correlation/        # Three-signal pivot (the headline demo)
-├── demo-03-sampling/           # Head vs tail sampling
+├── demo-03-sampling/           # Head vs tail sampling (standalone Collector)
 ├── demo-04-gc-pauses/          # GC pauses showing as trace gaps
-├── demo-05-aot-coldstart/      # JDK 25 + AOTCache cold-start spans
-├── diagrams/                   # Excalidraw source files
-└── presentation/               # reveal.js slide deck + speaker notes
+├── demo-05-aot-coldstart/      # JDK 25 + AOTCache cold-start (~5x speedup)
+├── diagrams/                   # Excalidraw source files (08–16)
+├── presentation/               # reveal.js slide deck + speaker notes
+└── tools/                      # build-diagrams.py and other helpers
 ```
 
 Each demo runs **independently** with its own podman compose stack on its own port range. You can `cd demo-NN-name && ./demo.sh` and it will spin up everything it needs without depending on sibling demos.
