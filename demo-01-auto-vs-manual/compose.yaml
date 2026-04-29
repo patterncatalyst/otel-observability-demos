@@ -1,0 +1,62 @@
+# Demo 01 — auto vs manual instrumentation
+# Stack: otel-lgtm (all-in-one) + Spring Boot 4.0.x service
+
+name: otel-demo-01
+
+services:
+
+  lgtm:
+    image: docker.io/grafana/otel-lgtm:0.8.1
+    container_name: demo01-lgtm
+    ports:
+      - "3001:3000"     # Grafana
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      # Grafana: skip first-run wizard
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      # Provisioning — datasources + dashboards
+      - ./grafana/provisioning/datasources:/otel-lgtm/grafana/conf/provisioning/datasources:Z
+      - ./grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards:Z
+    # Use tmpfs for Grafana state to sidestep rootless-podman volume ownership issues
+    tmpfs:
+      - /tmp
+    user: "0"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  service:
+    build:
+      context: ./service
+      dockerfile: Containerfile
+    container_name: demo01-service
+    ports:
+      - "8081:8080"
+    environment:
+      # OTLP target — the lgtm container's built-in receiver
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "demo01-service"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0"
+      # The MODE env var is read by demo.sh; the service itself reacts to AGENT_ENABLED
+      AGENT_ENABLED: "${AGENT_ENABLED:-false}"
+      # JVM flags — UBI9 default GC is Shenandoah; we don't override here
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s

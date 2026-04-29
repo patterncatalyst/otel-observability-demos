@@ -1,0 +1,83 @@
+# Demo 02 — three-signal correlation
+# Stack: otel-lgtm + order-service + inventory-service
+
+name: otel-demo-02
+
+services:
+
+  lgtm:
+    image: docker.io/grafana/otel-lgtm:0.8.1
+    container_name: demo02-lgtm
+    ports:
+      - "3002:3000"     # Grafana
+      - "14317:4317"    # OTLP gRPC
+      - "14318:4318"    # OTLP HTTP
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning/datasources:/otel-lgtm/grafana/conf/provisioning/datasources:Z
+      - ./grafana/provisioning/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards:Z
+    tmpfs:
+      - /tmp
+    user: "0"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  inventory-service:
+    build:
+      context: ./inventory-service
+      dockerfile: Containerfile
+    container_name: demo02-inventory
+    ports:
+      - "8092:8080"
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "inventory-service"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0"
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/app/opentelemetry-javaagent.jar
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Containerfile
+    container_name: demo02-order
+    ports:
+      - "8082:8080"
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      OTEL_SERVICE_NAME: "order-service"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0"
+      INVENTORY_BASE_URL: "http://inventory-service:8080"
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/app/opentelemetry-javaagent.jar
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    depends_on:
+      inventory-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s

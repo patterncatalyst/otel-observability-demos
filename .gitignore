@@ -1,0 +1,26 @@
+# Maven
+target/
+*.jar
+!**/agent/*.jar.placeholder
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Demo runtime artifacts
+/tmp/demo*.txt
+*.log
+
+# Podman / container state
+.podman/
+

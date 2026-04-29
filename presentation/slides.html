@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1024" />
+  <title>Three Signals, One Story — OpenTelemetry on OpenShift</title>
+
+  <!-- Reveal.js core -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css" />
+
+  <!-- Distinctive type pairing: Bricolage (display) + Manrope (body) + JetBrains Mono (code) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* =====================================================================
+       Theme — Three Signals, One Story
+       Palette mirrors the diagrams + repo color tokens.
+    ===================================================================== */
+    :root {
+      --bg:        #0A1628;
+      --bg-2:      #0E1E36;
+      --card:      #122040;
+      --card-2:    #1A2C50;
+      --teal:      #00BCD4;
+      --teal-dim:  #008394;
+      --blue:      #1E6FC8;
+      --coral:     #E84855;
+      --green:     #27AE60;
+      --orange:    #F5A623;
+      --purple:    #9B59B6;
+      --text:      #ECF0F1;
+      --text-dim:  #B0BEC5;
+      --muted:     #607D8B;
+
+      --display:   "Bricolage Grotesque", system-ui, sans-serif;
+      --body:      "Manrope", system-ui, sans-serif;
+      --mono:      "JetBrains Mono", ui-monospace, monospace;
+    }
+
+    .reveal {
+      font-family: var(--body);
+      font-size: 26px;
+      font-weight: 400;
+      color: var(--text);
+      letter-spacing: 0.005em;
+    }
+
+    .reveal-viewport {
+      background:
+        radial-gradient(ellipse at top right, rgba(0, 188, 212, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at bottom left, rgba(232, 72, 85, 0.04) 0%, transparent 50%),
+        var(--bg);
+    }
+
+    /* Headings -- the display font with tight tracking */
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+      font-family: var(--display);
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.015em;
+      line-height: 1.1;
+      text-transform: none;
+      margin: 0 0 0.5em 0;
+    }
+    .reveal h1 { font-size: 3.6em;  font-weight: 700; }
+    .reveal h2 { font-size: 1.7em;  color: var(--teal); }
+    .reveal h3 { font-size: 1.15em; color: var(--text); }
+
+    /* Section tag — small accent pill before titles */
+    .section-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.55em;
+      font-weight: 500;
+      color: var(--teal);
+      background: rgba(0, 188, 212, 0.12);
+      border: 1px solid var(--teal-dim);
+      padding: 0.18em 0.55em;
+      border-radius: 4px;
+      margin-right: 0.65em;
+      vertical-align: middle;
+      letter-spacing: 0.04em;
+    }
+
+    /* Demo / diagram markers */
+    .marker-demo, .marker-diagram {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      font-weight: 500;
+      padding: 0.2em 0.55em;
+      border-radius: 3px;
+      margin-left: 0.4em;
+      vertical-align: middle;
+    }
+    .marker-demo    { background: rgba(232, 72, 85, 0.15); color: var(--coral); border: 1px solid var(--coral); }
+    .marker-diagram { background: rgba(0, 188, 212, 0.15); color: var(--teal);  border: 1px solid var(--teal-dim); }
+
+    /* Lists -- minimal markers */
+    .reveal ul, .reveal ol {
+      display: block;
+      margin: 0 0 0.5em 1.5em;
+      padding: 0;
+    }
+    .reveal li {
+      margin: 0.4em 0;
+      line-height: 1.45;
+    }
+    .reveal ul li::marker { color: var(--teal); }
+    .reveal ol li::marker { color: var(--orange); font-weight: 600; }
+
+    /* Inline code & code blocks */
+    .reveal code {
+      font-family: var(--mono);
+      font-size: 0.78em;
+      background: var(--card);
+      color: var(--teal);
+      padding: 0.05em 0.4em;
+      border-radius: 3px;
+      border: 1px solid var(--card-2);
+    }
+    .reveal pre {
+      box-shadow: none;
+      width: 100%;
+      margin: 1em auto;
+    }
+    .reveal pre code {
+      display: block;
+      padding: 1em 1.2em;
+      font-size: 0.55em;
+      line-height: 1.55;
+      background: var(--bg-2);
+      color: var(--text);
+      border: 1px solid var(--card-2);
+      border-radius: 6px;
+    }
+
+    /* Stat tiles -- big numbers */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1em;
+      margin: 1.5em 0;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--card-2);
+      border-radius: 8px;
+      padding: 1.2em 0.8em;
+      text-align: center;
+    }
+    .stat-num {
+      font-family: var(--display);
+      font-size: 2.4em;
+      font-weight: 700;
+      color: var(--teal);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .stat-label {
+      font-size: 0.5em;
+      color: var(--text-dim);
+      margin-top: 0.5em;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Two-column layouts */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.4em;
+      align-items: start;
+    }
+    .three-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1em;
+      align-items: stretch;
+    }
+    .col-card {
+      background: var(--card);
+      border: 1px solid var(--card-2);
+      border-left: 3px solid var(--teal);
+      border-radius: 6px;
+      padding: 1em 1.2em;
+      text-align: left;
+    }
+    .col-card.coral  { border-left-color: var(--coral);  }
+    .col-card.green  { border-left-color: var(--green);  }
+    .col-card.orange { border-left-color: var(--orange); }
+    .col-card.purple { border-left-color: var(--purple); }
+    .col-card h3 { color: var(--teal); font-size: 1em; margin-bottom: 0.6em; }
+    .col-card.coral  h3 { color: var(--coral); }
+    .col-card.green  h3 { color: var(--green); }
+    .col-card.orange h3 { color: var(--orange); }
+    .col-card.purple h3 { color: var(--purple); }
+
+    /* Pull-quote / takeaway */
+    .takeaway {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.4em;
+      line-height: 1.35;
+      color: var(--teal);
+      border-left: 3px solid var(--teal);
+      padding: 0.4em 0 0.4em 0.9em;
+      margin: 1em 0;
+      letter-spacing: -0.01em;
+    }
+    .takeaway.coral  { color: var(--coral);  border-left-color: var(--coral); }
+    .takeaway.orange { color: var(--orange); border-left-color: var(--orange); }
+
+    /* Key-value table */
+    .kv {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.5em 1.4em;
+      align-items: baseline;
+    }
+    .kv .k {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--teal);
+      white-space: nowrap;
+    }
+    .kv .v { color: var(--text); }
+
+    /* Comparison table */
+    .reveal table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82em;
+      margin: 1em 0;
+    }
+    .reveal table th, .reveal table td {
+      padding: 0.55em 0.85em;
+      text-align: left;
+      border-bottom: 1px solid var(--card-2);
+    }
+    .reveal table th {
+      font-family: var(--display);
+      font-weight: 600;
+      color: var(--teal);
+      border-bottom-color: var(--teal-dim);
+    }
+
+    /* Title slide -- bigger, branded */
+    .title-slide { text-align: left; }
+    .title-slide .eyebrow {
+      font-family: var(--mono);
+      font-size: 0.5em;
+      letter-spacing: 0.18em;
+      color: var(--teal);
+      text-transform: uppercase;
+      margin-bottom: 1.2em;
+    }
+    .title-slide h1 {
+      font-size: 3.2em;
+      line-height: 0.98;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.4em;
+    }
+    .title-slide h1 .accent { color: var(--teal); font-style: italic; font-weight: 700; }
+    .title-slide .sub {
+      font-family: var(--display);
+      font-weight: 400;
+      font-size: 1em;
+      color: var(--text-dim);
+      letter-spacing: -0.005em;
+      max-width: 70%;
+    }
+    .title-slide .author {
+      margin-top: 2.5em;
+      font-family: var(--mono);
+      font-size: 0.55em;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* Diagram placeholder */
+    .diagram-slide {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+    .diagram-placeholder {
+      background: var(--card);
+      border: 2px dashed var(--teal-dim);
+      border-radius: 12px;
+      padding: 4em 3em;
+      width: 80%;
+      text-align: center;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 0.8em;
+    }
+    .diagram-placeholder .filename {
+      font-family: var(--mono);
+      color: var(--teal);
+      font-size: 1.15em;
+      display: block;
+      margin-bottom: 0.6em;
+    }
+    .diagram-placeholder small {
+      display: block;
+      font-size: 0.85em;
+      color: var(--muted);
+      margin-top: 0.6em;
+      letter-spacing: 0.04em;
+    }
+
+    /* Demo callout slide */
+    .demo-slide {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 80%;
+    }
+    .demo-slide .demo-num {
+      font-family: var(--mono);
+      font-size: 0.55em;
+      letter-spacing: 0.2em;
+      color: var(--coral);
+      text-transform: uppercase;
+    }
+    .demo-slide h2 {
+      font-size: 3em;
+      color: var(--text);
+      margin: 0.3em 0;
+    }
+    .demo-slide .quote {
+      font-family: var(--display);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1.4em;
+      color: var(--coral);
+      max-width: 70%;
+      margin: 0.4em auto 1.5em auto;
+      line-height: 1.3;
+    }
+    .demo-slide .demo-cmd {
+      font-family: var(--mono);
+      font-size: 0.7em;
+      color: var(--teal);
+      background: var(--card);
+      border: 1px solid var(--card-2);
+      padding: 0.6em 1em;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    /* Footer slide number / brand */
+    .reveal .slide-number {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--muted);
+      background: transparent;
+      right: 24px;
+      bottom: 20px;
+    }
+    .footer-brand {
+      position: fixed;
+      bottom: 18px;
+      left: 24px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Subtle scan line effect for tech feel -- very low opacity */
+    .reveal-viewport::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 188, 212, 0.012) 0px,
+        rgba(0, 188, 212, 0.012) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+      z-index: 1;
+    }
+    .reveal { z-index: 2; position: relative; }
+
+    /* Bonus slide tag */
+    .bonus-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.5em;
+      letter-spacing: 0.18em;
+      color: var(--purple);
+      background: rgba(155, 89, 182, 0.12);
+      border: 1px solid var(--purple);
+      padding: 0.18em 0.55em;
+      border-radius: 3px;
+      margin-right: 0.6em;
+      vertical-align: middle;
+      text-transform: uppercase;
+    }
+
+    /* Tighter spacing for slides with lots of content */
+    section.dense ul li { margin: 0.18em 0; font-size: 0.92em; }
+    section.dense p { margin: 0.4em 0; }
+
+    /* Highlight token */
+    .hl { color: var(--teal); font-weight: 600; }
+    .hl.coral  { color: var(--coral); }
+    .hl.green  { color: var(--green); }
+    .hl.orange { color: var(--orange); }
+    .hl.purple { color: var(--purple); }
+  </style>
+</head>
+<body>
+
+<div class="footer-brand">three signals, one story · otel · openshift</div>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ================================================================== -->
+    <!-- 1. TITLE                                                           -->
+    <!-- ================================================================== -->
+    <section class="title-slide">
+      <div class="eyebrow">Talk · 60 minutes · 5 demos</div>
+      <h1>Three Signals,<br/><span class="accent">One Story.</span></h1>
+      <div class="sub">Cloud-native observability with OpenTelemetry, Spring Boot 4.0, and the Grafana LGTM stack on OpenShift.</div>
+      <div class="author">your name · your handle · your conference · your date</div>
+      <aside class="notes">
+        Open with the title verbally. Make eye contact. Pause. The "one story" framing is the whole arc — three signals (metrics, logs, traces) that on their own each tell you a fragment, together tell you the whole story.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- 2. AGENDA                                                          -->
+    <!-- ================================================================== -->
+    <section>
+      <h2>What we'll cover</h2>
+      <div class="two-col">
+        <div>
+          <div class="kv">
+            <div class="k">§1</div><div class="v">Fundamentals: signals, SDKs, OTLP</div>
+            <div class="k">§2</div><div class="v">Instrumentation modes <span class="marker-demo">demo 01</span></div>
+            <div class="k">§3</div><div class="v">OTel vs Prometheus</div>
+            <div class="k">§4</div><div class="v">The LGTM stack</div>
+          </div>
+        </div>
+        <div>
+          <div class="kv">
+            <div class="k">§5</div><div class="v">Correlation <span class="marker-demo">demo 02</span></div>
+            <div class="k">§6</div><div class="v">Sampling <span class="marker-demo">demo 03</span></div>
+            <div class="k">§7</div><div class="v">Debug + Perf <span class="marker-demo">04 + 05</span></div>
+            <div class="k">§8</div><div class="v">OpenShift</div>
+          </div>
+        </div>
+      </div>
+      <div class="takeaway" style="margin-top:1.5em;">52 minutes content · 5 live demos · 8 minutes Q&amp;A</div>
+      <aside class="notes">
+        Walk through each section in 10 seconds. Highlight the demo markers — five live demos, each with its own podman compose stack. Set expectations: this is a working session, not a slideshow.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- 3. WHY THIS IS HARD                                                -->
+    <!-- ================================================================== -->
+    <section>
+      <h2>Why this is hard</h2>
+      <div class="stats">
+        <div class="stat"><div class="stat-num">3</div><div class="stat-label">signals</div></div>
+        <div class="stat"><div class="stat-num">3</div><div class="stat-label">tools</div></div>
+        <div class="stat"><div class="stat-num">3</div><div class="stat-label">UIs</div></div>
+        <div class="stat"><div class="stat-num">0</div><div class="stat-label">shared identifier</div></div>
+      </div>
+      <div class="takeaway coral">The problem isn't lack of data.<br/>It's that the data is in three silos that don't pivot.</div>
+      <aside class="notes">
+        We have plenty of metrics. We have plenty of logs. We have traces (sometimes). They live in different systems. The traceId, when it exists, doesn't make it to the metric. The log line doesn't carry the spanId. So when something breaks, the operator does the pivot manually — by guessing timestamps and grep'ing across three tools. That's the problem OTel was designed to fix.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §1 OTEL FUNDAMENTALS — slides 4-7                                  -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§1</span> What OpenTelemetry is</h2>
+      <ul>
+        <li><span class="hl">Vendor-neutral observability standard</span> — CNCF graduated, second only to Kubernetes in commit volume.</li>
+        <li>Three deliverables that compose: <code>API</code>, <code>SDK</code>, <code>Collector</code>.</li>
+        <li><code>OTLP</code> is the wire format — protobuf over gRPC or HTTP.</li>
+        <li>Spring Boot, Quarkus, .NET, Go, Python, Node, Ruby — all have official SDKs that converge on OTLP.</li>
+      </ul>
+      <div class="takeaway">Instrument once. Decide who you pay later.</div>
+      <aside class="notes">
+        OTel is not a backend, not a UI, not a SaaS. It's an instrumentation standard plus a forwarding component (the Collector). The big idea: separate the act of producing telemetry from the act of storing it. You can change vendors — Datadog, New Relic, Honeycomb, Grafana Cloud, self-hosted LGTM — without changing a line of application code.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§1</span> The three signals</h2>
+      <div class="three-col">
+        <div class="col-card green">
+          <h3>Metrics</h3>
+          <p style="font-size:0.85em">Counters, gauges, histograms. Aggregate. Cheap to store. Great for "is the box on fire."</p>
+        </div>
+        <div class="col-card orange">
+          <h3>Logs</h3>
+          <p style="font-size:0.85em">Structured records. Lossy at scale. Great for "what was the error message."</p>
+        </div>
+        <div class="col-card purple">
+          <h3>Traces</h3>
+          <p style="font-size:0.85em">Causally-linked spans across processes. Great for "where did the time go."</p>
+        </div>
+      </div>
+      <div class="takeaway" style="margin-top:1em;">Each useful alone. Transformative together — when they share a <code>traceId</code>.</div>
+      <aside class="notes">
+        Ten seconds per signal. Then the punchline: the value isn't additive — it's multiplicative. A metric without a trace tells you something's wrong; a trace without logs tells you which service; the three together tell you exactly what to fix. This is the entire reason for this talk.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§1</span> Signal flow <span class="marker-diagram">diagram 08</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/08-otel-signal-flow.excalidraw</span>
+          App → SDK → OTLP → Collector → Prom / Loki / Tempo
+          <small>shared traceId line crosses all three lanes</small>
+        </div>
+      </div>
+      <aside class="notes">
+        Walk left-to-right: app emits via SDK → batched OTLP → Collector splits to backend stores → operator queries via Grafana. Trace the dotted line at the bottom — that's the traceId, the thing that ties everything together. If you remember one image from this talk, this is it.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§1</span> Why it matters</h2>
+      <div class="two-col">
+        <div class="col-card">
+          <h3>Before OTel</h3>
+          <ul>
+            <li>Vendor-specific agent per language</li>
+            <li>Re-instrument when switching tools</li>
+            <li>Each signal in its own format</li>
+            <li>Trace context rarely propagates</li>
+          </ul>
+        </div>
+        <div class="col-card green">
+          <h3>With OTel</h3>
+          <ul>
+            <li>One SDK per language, neutral</li>
+            <li>Swap backends without re-instrumenting</li>
+            <li>OTLP as a single wire format</li>
+            <li>W3C trace context in every span</li>
+          </ul>
+        </div>
+      </div>
+      <aside class="notes">
+        The "instrument once, decide later" line is worth pausing on. Real-world impact: teams who instrumented with proprietary APMs in 2018 had to re-instrument when they switched vendors. Teams who instrumented with OTel in 2022 changed a single env var. That's the difference.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §2 INSTRUMENTATION — slides 8-11                                   -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§2</span> Three approaches <span class="marker-diagram">diagram 09</span></h2>
+      <div class="three-col">
+        <div class="col-card green">
+          <h3>Auto</h3>
+          <p style="font-size:0.85em">Bytecode-instrumenting agent. <code>-javaagent:...</code>. Zero code change.</p>
+        </div>
+        <div class="col-card orange">
+          <h3>Manual</h3>
+          <p style="font-size:0.85em">Hand-written spans via the OTel API or Micrometer Observation.</p>
+        </div>
+        <div class="col-card">
+          <h3>Hybrid</h3>
+          <p style="font-size:0.85em">Auto for the seams + manual for your domain. <span class="hl">This is what production looks like.</span></p>
+        </div>
+      </div>
+      <aside class="notes">
+        Almost every Spring Boot deployment in the wild that I've seen is doing the hybrid model — they just may not have explicitly chosen it. The agent gets attached, then over time someone adds spans around hot business operations. That's fine. That's correct. We just need to be intentional about it.
+      </aside>
+    </section>
+
+    <section class="dense">
+      <h2><span class="section-tag">§2</span> Auto-instrumentation, deep</h2>
+      <pre><code class="language-bash">java -javaagent:opentelemetry-javaagent.jar \
+     -Dotel.service.name=order-service \
+     -Dotel.exporter.otlp.endpoint=http://collector:4318 \
+     -jar app.jar</code></pre>
+      <ul>
+        <li><span class="hl">~120 instrumentations</span> ship with the agent — HTTP servers/clients, JDBC, Kafka, Redis, gRPC, Lettuce, MongoDB.</li>
+        <li>Bytecode manipulation at startup (ByteBuddy). <span class="hl">No source code changes</span>, no recompile.</li>
+        <li>Configuration via env vars or system properties.</li>
+        <li>Costs: <span class="hl orange">5–10% startup time</span>, 1–3% steady-state CPU. Occasional shaded-jar surprises.</li>
+      </ul>
+      <aside class="notes">
+        Pull up the supported-libraries.md page in a tab if asked — it's a long list. Common pitfall: the agent doesn't see classes loaded by custom classloaders (some shaded fat-jars). Spring Boot is fine. Quarkus has its own native instrumentation path. .NET is similar. Go does NOT have an auto-agent — that's the major language gap.
+      </aside>
+    </section>
+
+    <section class="dense">
+      <h2><span class="section-tag">§2</span> The Spring Boot 4.0.x reality</h2>
+      <pre><code class="language-xml">&lt;dependency&gt;
+  &lt;groupId&gt;io.micrometer&lt;/groupId&gt;
+  &lt;artifactId&gt;micrometer-tracing-bridge-otel&lt;/artifactId&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+  &lt;groupId&gt;io.opentelemetry&lt;/groupId&gt;
+  &lt;artifactId&gt;opentelemetry-exporter-otlp&lt;/artifactId&gt;
+&lt;/dependency&gt;</code></pre>
+      <ul>
+        <li>Spring Boot 4.0 = Jakarta EE 11, Java 25 first-class, Jackson 3 default.</li>
+        <li><code>micrometer-tracing-bridge-otel</code> is the recommended path. The Observation API spans land in OTLP.</li>
+        <li><span class="hl coral">Heads up:</span> <code>ZipkinSpanExporter</code> is deprecated in 4.0, gone in 4.2. <span class="hl">OTLP only.</span></li>
+      </ul>
+      <aside class="notes">
+        Two-line dep change is what gives you basic auto-config: every HTTP request a server span, every RestClient call a client span, every JDBC statement (with the agent) a child span. Before this, you'd need Spring Cloud Sleuth + Zipkin shenanigans. Spring Boot 3+ killed Sleuth and rebased on Micrometer Observation. Spring Boot 4 doubles down on it.
+      </aside>
+    </section>
+
+    <section class="demo-slide">
+      <div class="demo-num">DEMO 01 · 3 minutes</div>
+      <h2>Auto-agent in 60 seconds</h2>
+      <div class="quote">"Same JAR. One env var. Three different worlds."</div>
+      <div class="demo-cmd">cd demo-01-auto-vs-manual &amp;&amp; ./demo.sh</div>
+      <aside class="notes">
+        Three modes back-to-back. (1) No agent — Tempo is empty, app responds. (2) AGENT_ENABLED=true → restart container → Tempo full of spans. Same JAR file. Same code. One environment variable. (3) Hit /work — see the manual Observation span nest under the auto-traced HTTP span. Practice the moment between mode 1 and mode 2 — the empty-Tempo / full-Tempo flip is the slide.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §3 OTEL VS PROMETHEUS — slides 12-14                               -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§3</span> Pull vs push</h2>
+      <div class="two-col">
+        <div class="col-card orange">
+          <h3>Prometheus</h3>
+          <ul>
+            <li>Scrapes <code>/metrics</code> endpoints</li>
+            <li>Battle-tested at scale</li>
+            <li>PromQL is its own language</li>
+            <li>Single-zone friendly</li>
+            <li>Cardinality-bounded by design</li>
+          </ul>
+        </div>
+        <div class="col-card">
+          <h3>OpenTelemetry</h3>
+          <ul>
+            <li>Apps push OTLP to a Collector</li>
+            <li>Multi-signal: metrics, logs, traces</li>
+            <li>Vendor-neutral semantic conventions</li>
+            <li>Exemplars first-class</li>
+            <li>Backend-agnostic</li>
+          </ul>
+        </div>
+      </div>
+      <aside class="notes">
+        These are not opposing camps. Prom solves "I want to scrape my apps over HTTP and store time series." OTel solves "I want one wire format for everything I emit." Where they overlap is metrics — and they overlap intentionally.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§3</span> The bridge <span class="marker-diagram">diagram 10</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/10-otel-vs-prometheus.excalidraw</span>
+          Prometheus  ←→  Collector  ←→  OpenTelemetry
+          <small>scrape → OTLP, or remote_write → Prom; both are first-class</small>
+        </div>
+      </div>
+      <aside class="notes">
+        The Collector has receivers and exporters. A Prometheus receiver scrapes /metrics endpoints just like Prom does. A Prometheus remote_write exporter sends OTel metrics into a Prom-compatible store like Mimir. Both directions work. Most realistic deployments do both: scrape kube-state-metrics with the Prom receiver, push app metrics with OTLP from the SDK.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§3</span> When to use what</h2>
+      <table>
+        <thead>
+          <tr><th>Use case</th><th>Prometheus</th><th>OpenTelemetry</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Kubernetes infra metrics</td><td>✓ scrape kube-state-metrics</td><td>· receive via OTel scrape</td></tr>
+          <tr><td>App business metrics</td><td>· /actuator/prometheus</td><td>✓ OTLP push</td></tr>
+          <tr><td>Distributed traces</td><td>—</td><td>✓ only path</td></tr>
+          <tr><td>Structured logs</td><td>—</td><td>✓ growing support</td></tr>
+          <tr><td>Cross-signal correlation</td><td>—</td><td>✓ traceId everywhere</td></tr>
+        </tbody>
+      </table>
+      <div class="takeaway">AND, not OR. Most prod deployments run both.</div>
+      <aside class="notes">
+        Don't get caught in religious arguments. Prom isn't going anywhere — too much value in PromQL, alerting, the existing operational ecosystem. OTel is winning the application instrumentation layer, especially as more vendors converge on OTLP as their wire format.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §4 LGTM STACK — slides 15-17                                       -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§4</span> The LGTM stack <span class="marker-diagram">diagram 11</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/11-lgtm-architecture.excalidraw</span>
+          App → Collector → Tempo · Loki · Prom (Mimir) → Grafana
+          <small>all-in-one image: docker.io/grafana/otel-lgtm:0.8.1</small>
+        </div>
+      </div>
+      <aside class="notes">
+        LGTM = Loki, Grafana, Tempo, Mimir. The otel-lgtm image bundles all four plus an embedded Collector for development convenience. In production you'd run them separately, scaled and HA. For a demo and for local dev, the all-in-one is perfect — one container, three signal stores, ready dashboards.
+      </aside>
+    </section>
+
+    <section class="dense">
+      <h2><span class="section-tag">§4</span> Podman compose, in practice</h2>
+      <pre><code class="language-yaml">services:
+  lgtm:
+    image: docker.io/grafana/otel-lgtm:0.8.1
+    ports: [ "3001:3000", "4317:4317", "4318:4318" ]
+    volumes:
+      - ./grafana/provisioning/datasources:/otel-lgtm/grafana/conf/provisioning/datasources:Z
+    tmpfs: [ /tmp ]
+    user: "0"
+  service:
+    build: { context: ./service, dockerfile: Containerfile }
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4318"
+      OTEL_SERVICE_NAME: "demo01-service"</code></pre>
+      <ul>
+        <li><code>:Z</code> on bind mounts — SELinux on Fedora/RHEL.</li>
+        <li>Fully-qualified image names (<code>docker.io/...</code>) — podman doesn't assume.</li>
+        <li><code>tmpfs</code> + <code>user: "0"</code> sidesteps rootless-podman volume ownership pain.</li>
+      </ul>
+      <aside class="notes">
+        These three lessons cost real time. The :Z is the single most common podman gotcha. The fully-qualified image name is the second. The volume ownership issue with rootless podman bites everyone once. Photograph this slide.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§4</span> One stack per demo</h2>
+      <ul>
+        <li>Each demo gets its <span class="hl">own</span> <code>compose.yaml</code> + <span class="hl">own</span> Grafana + <span class="hl">own</span> port range.</li>
+        <li><code>cd demo-NN-name &amp;&amp; ./demo.sh</code> — no shared state, no cross-demo coupling.</li>
+        <li>Failure of one demo doesn't poison the next.</li>
+        <li>Talk-day reliability &gt;&gt; elegance.</li>
+      </ul>
+      <table>
+        <thead><tr><th>Demo</th><th>Grafana</th><th>OTLP gRPC / HTTP</th><th>Service</th></tr></thead>
+        <tbody>
+          <tr><td>01 auto-vs-manual</td><td>3001</td><td>4317 / 4318</td><td>8081</td></tr>
+          <tr><td>02 correlation</td><td>3002</td><td>14317 / 14318</td><td>8082, 8092</td></tr>
+          <tr><td>03 sampling</td><td>3003</td><td>24317 / 24318</td><td>8083</td></tr>
+          <tr><td>04 GC pauses</td><td>3004</td><td>34317 / 34318</td><td>8084</td></tr>
+          <tr><td>05 AOT cold-start</td><td>3005</td><td>44317 / 44318</td><td>8085</td></tr>
+        </tbody>
+      </table>
+      <aside class="notes">
+        Lessons-learned design choice. Sharing the LGTM stack between demos saves seconds at startup but costs minutes when something goes wrong mid-talk. Each demo is its own universe. Trade-off: more disk space, more boilerplate. Worth it.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §5 CORRELATION (HEADLINE) — slides 18-20                           -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§5</span> The pivot <span class="marker-diagram">diagram 12</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/12-correlation-pivot.excalidraw</span>
+          Metric spike → Exemplar → Trace → Span logs → Root cause
+          <small>≈ 15 seconds, end to end</small>
+        </div>
+      </div>
+      <aside class="notes">
+        This is the slide of the talk. Pause. Let the audience read the five steps. Then the headline: fifteen seconds. Most teams without this can't get to root cause in fifteen minutes. The difference is one identifier — the traceId — and three datasources that know how to use it.
+      </aside>
+    </section>
+
+    <section class="dense">
+      <h2><span class="section-tag">§5</span> How it actually works</h2>
+      <div class="two-col">
+        <div>
+          <h3 style="color:var(--orange)">App side</h3>
+          <pre><code class="language-yaml">management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+logging:
+  pattern:
+    correlation: "[%X{traceId:-},%X{spanId:-}]"</code></pre>
+        </div>
+        <div>
+          <h3 style="color:var(--teal)">Grafana side</h3>
+          <pre><code class="language-yaml"># datasources.yaml
+- name: Loki
+  jsonData:
+    derivedFields:
+      - name: TraceID
+        datasourceUid: tempo
+        matcherRegex: "\\[([a-f0-9]{32}),"
+        url: "${__value.raw}"</code></pre>
+        </div>
+      </div>
+      <div class="takeaway">Three lines of YAML each. That's the whole trick.</div>
+      <aside class="notes">
+        Histogram exemplars are the underused killer feature. Most teams have histograms but never enable exemplars, so the dot-click pivot doesn't work. One Spring Boot property turns it on. The Logback %X{traceId} pattern works because micrometer-tracing-bridge-otel installs the MDC mapping automatically. The Grafana derivedFields regex is what makes the traceId clickable in log lines.
+      </aside>
+    </section>
+
+    <section class="demo-slide">
+      <div class="demo-num">DEMO 02 · 8 minutes · the headline</div>
+      <h2>Three signals, one story</h2>
+      <div class="quote">"Fifteen seconds from anomaly to root cause."</div>
+      <div class="demo-cmd">cd demo-02-correlation &amp;&amp; ./demo.sh</div>
+      <aside class="notes">
+        OVER-REHEARSE THIS. Two services, fault injection, three-store pivot. The script does: (1) baseline traffic, (2) inject 500ms latency + 5% errors on inventory-service, (3) prompt you to do the pivot. Practice the click-path: dashboard → exemplar dot → Tempo → "logs for span" → Loki. Aim for &lt;20 seconds in front of an audience. Have the dashboard URL bookmarked.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §6 SAMPLING — slides 21-23                                         -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§6</span> Why sample</h2>
+      <div class="stats">
+        <div class="stat"><div class="stat-num">1k</div><div class="stat-label">RPS</div></div>
+        <div class="stat"><div class="stat-num">100%</div><div class="stat-label">trace volume</div></div>
+        <div class="stat"><div class="stat-num">30d</div><div class="stat-label">retention</div></div>
+        <div class="stat"><div class="stat-num">$$$</div><div class="stat-label">storage bill</div></div>
+      </div>
+      <ul>
+        <li>You're paying for traces nobody will ever read.</li>
+        <li>Sampling is the cost lever — but where you sample matters more than how much.</li>
+      </ul>
+      <aside class="notes">
+        Quick math: 1000 traces/second × 86400 seconds/day × 30 days × ~5KB/trace = ~13 TB. Multiply by the cost of your traces backend and you'll find observability is suddenly your second-largest cloud bill.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§6</span> Head vs tail <span class="marker-diagram">diagram 13</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/13-head-vs-tail-sampling.excalidraw</span>
+          Head: decide at span start. Tail: decide at trace end.
+          <small>Production answer: parentbased_traceidratio + Collector tail_sampling</small>
+        </div>
+      </div>
+      <aside class="notes">
+        Head sampling: cheap, predictable, blind to outcome. Tail sampling: smart (keep all errors, all slow traces, percentage of normal), buffers entire traces in the Collector before deciding. The Collector needs RAM proportional to your trace duration × your span rate. Most production: both. Head sampling at the app to throttle output, tail sampling at the gateway Collector to keep the interesting traces.
+      </aside>
+    </section>
+
+    <section class="demo-slide">
+      <div class="demo-num">DEMO 03 · 6 minutes</div>
+      <h2>Tail sampling in the Collector</h2>
+      <div class="quote">"Keep what matters. Drop the rest."</div>
+      <div class="demo-cmd">cd demo-03-sampling &amp;&amp; ./demo.sh</div>
+      <aside class="notes">
+        Two configs side-by-side: head sampling at the app (parentbased_traceidratio=0.05) vs tail sampling in the Collector (status=ERROR keep 100%, latency &gt;1s keep 100%, else keep 5%). Hit the service with mixed traffic. Head sampling: lots of normal traces preserved, errors thrown out at random. Tail sampling: every error preserved, every slow trace preserved, 5% of normal kept for sanity. Show the Tempo trace counts.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §7 DEBUG + PERF — slides 24-26                                     -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§7</span> Use case 1 · GC pauses <span class="marker-diagram">diagram 14</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/14-gc-trace-correlation.excalidraw</span>
+          HTTP spans · GC pauses · p99 — three timelines, one story
+          <small>demo 04: allocation pressure on Spring Boot, watch the lanes align</small>
+        </div>
+      </div>
+      <aside class="notes">
+        Demo 04: a service with an /allocate endpoint that creates throwaway objects. With JVM GC metrics enabled (Micrometer ships these by default), you see jvm.gc.pause histograms in Prom. Overlay with HTTP request spans in Tempo and the p99 metric line — alignment is striking. The point: observability sees ACROSS the JVM/app boundary. The pause is in the runtime, the span is in your code, but the same dashboard shows both.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§7</span> Use case 2 · Cold-start visibility <span class="bonus-tag">JDK 25</span></h2>
+      <div class="two-col">
+        <div class="col-card">
+          <h3>Classic JVM</h3>
+          <p>~3500 ms cold start.<br/>Class loading, bean wiring, context refresh — all serialized at startup.</p>
+        </div>
+        <div class="col-card purple">
+          <h3>JDK 25 + AOTCache</h3>
+          <p>~700 ms cold start.<br/>Training run captures the steady-state profile; production run reads it back.</p>
+        </div>
+      </div>
+      <div class="takeaway">Trace the startup span tree → see exactly <em>where</em> the saved time lives.</div>
+      <aside class="notes">
+        Demo 05: side-by-side Spring Boot containers. Same app. One built classic, one built with -XX:AOTCacheOutput in a multi-stage Containerfile that does a training run before producing the final image. Boot both, compare startup span trees. The point isn't just "look how fast it is" — it's "look how the trace EXPLAINS the speedup." Class loading time visible. Bean wiring time visible. You can attribute the savings to specific phases.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§7</span> Use case 3 · Cross-service errors</h2>
+      <ul>
+        <li>Customer hits frontend at <span class="hl">10:42:17.231</span> — gets a 500.</li>
+        <li>Frontend logs a stack trace. Service team gets paged.</li>
+        <li>Three hops downstream: <span class="hl coral">database connection pool exhausted</span>.</li>
+        <li>Without distributed traces? The downstream team and the frontend team argue for two hours.</li>
+      </ul>
+      <div class="takeaway coral">The traceId is the only thing that connects them.</div>
+      <aside class="notes">
+        No demo here — just a real story. Show a screenshot if you have one. Auto-instrumentation propagates W3C traceparent through every HTTP/gRPC call. No custom code. The end-to-end span graph is the artifact that resolves the cross-team debugging in seconds. This is the strongest argument for distributed tracing in microservices.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- §8 OPENSHIFT — slides 27-29                                        -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="section-tag">§8</span> Red Hat build of OpenTelemetry</h2>
+      <ul>
+        <li>Operator-managed via the <code>OpenTelemetryCollector</code> CRD.</li>
+        <li>Cluster-supported lifecycle — patches and CVEs without rolling your own.</li>
+        <li>Tested against OpenShift's networking, security, and SCC model.</li>
+        <li>UBI-based collector image; same support contract as the rest of your platform.</li>
+      </ul>
+      <pre><code class="language-yaml">apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata: { name: gateway, namespace: observability }
+spec:
+  mode: deployment
+  replicas: 3
+  config: |
+    receivers: { otlp: { protocols: { grpc: {}, http: {} } } }
+    exporters: { otlphttp: { endpoint: http://tempo:4318 } }</code></pre>
+      <aside class="notes">
+        The Red Hat build of OpenTelemetry is a tech-preview-graduating-to-GA productized version of upstream OTel components, packaged with an Operator. If you're on OpenShift, this is the path of least resistance: declarative Collector definitions, CR-driven config, automatic upgrades.
+      </aside>
+    </section>
+
+    <section>
+      <h2><span class="section-tag">§8</span> Deployment patterns <span class="marker-diagram">diagram 15</span></h2>
+      <div class="diagram-slide">
+        <div class="diagram-placeholder">
+          <span class="filename">diagrams/15-openshift-collector-patterns.excalidraw</span>
+          Sidecar · DaemonSet · Deployment (gateway)
+          <small>most teams: DaemonSet → centralized Deployment gateway</small>
+        </div>
+      </div>
+      <aside class="notes">
+        Three patterns, three trade-offs. Sidecar = strongest isolation, highest overhead (one Collector per pod). DaemonSet = balanced, one per node, scales naturally. Deployment = centralized gateway, lets you do tail sampling, costs a network hop. Production at scale: DaemonSet for collection, Deployment for the gateway that does the smart routing and sampling.
+      </aside>
+    </section>
+
+    <section class="dense">
+      <h2><span class="section-tag">§8</span> OpenShift gotchas</h2>
+      <ul>
+        <li><span class="hl coral">Service mesh emits proxy-level spans only.</span> You still need app-level instrumentation.</li>
+        <li>Routes preserve <code>traceparent</code> by default — Ingresses sometimes don't (check your annotations).</li>
+        <li>Plan SCCs for the Collector — DaemonSet usually needs <code>privileged</code> for hostPath log scraping.</li>
+        <li>Network policies: Collector needs egress to your backend store (or to the gateway Collector).</li>
+        <li>Use the <span class="hl">UBI-based</span> Collector image, not <code>contrib</code>, if you want support.</li>
+      </ul>
+      <aside class="notes">
+        These are the things that bite you on day-2. Especially the service-mesh-only spans — Istio, Linkerd, OpenShift Service Mesh all emit envoy/proxy spans, but those don't have your business context. You need both: mesh spans for routing visibility, app spans for "why did THIS request fail."
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- 30. CLOSE                                                          -->
+    <!-- ================================================================== -->
+    <section>
+      <h2>Five takeaways</h2>
+      <ol>
+        <li>Three signals, one identifier — design for correlation from day one.</li>
+        <li>Auto-instrument first; hand-instrument the seams.</li>
+        <li>OTel and Prometheus compose. They don't compete.</li>
+        <li>Sample at the head in dev, at the tail in prod.</li>
+        <li>The Collector is the most important thing you'll deploy. Invest in it.</li>
+      </ol>
+      <div class="takeaway" style="margin-top:1em;">Repo + slides + diagrams: <code>github.com/your-handle/otel-observability-demos</code></div>
+      <aside class="notes">
+        Read each takeaway slowly. Pause between them. Don't rush. Then drop the repo URL — make sure the QR code is on this slide if you have one. Open the floor for Q&amp;A. Eight minutes is plenty for 4-6 questions.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- BONUS B1 — Shenandoah default                                      -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="bonus-tag">bonus</span> The default GC nobody talks about</h2>
+      <ul>
+        <li>UBI9 OpenJDK images ship with <span class="hl">Shenandoah as the default collector</span>.</li>
+        <li>Every other major distro — Temurin, Corretto, Microsoft, Azul — defaults to G1GC.</li>
+        <li>If your image is <code>FROM registry.access.redhat.com/ubi9/openjdk-21-runtime</code>, you're already on it. <span class="hl green">No flag.</span></li>
+        <li>Spring Boot apps are heap-allocation heavy: bean wiring at startup, JSON serde + request scope at runtime. Shenandoah handles that profile beautifully.</li>
+      </ul>
+      <div class="takeaway green">Generational since JDK 21. Concurrent evacuation. ~5% memory overhead.</div>
+      <aside class="notes">
+        Most Spring Boot devs running on UBI9 don't realize they're getting a sub-10ms-pause GC for free. They think they have G1 because that's the OpenJDK default. They don't. The Red Hat distribution flips it. Project Shenandoah was started at Red Hat, the upstream maintainers are Red Hat employees — this isn't a fork, it's first-party investment.
+      </aside>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- BONUS B2 — Comparison                                              -->
+    <!-- ================================================================== -->
+    <section>
+      <h2><span class="bonus-tag">bonus</span> G1 vs ZGC vs Shenandoah <span class="marker-diagram">diagram 16</span></h2>
+      <table>
+        <thead>
+          <tr><th>GC</th><th>p99 pause</th><th>Memory</th><th>Best for</th><th>In traces</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="hl orange">G1GC</span></td>
+            <td>10–100 ms</td>
+            <td>low</td>
+            <td>throughput, balanced</td>
+            <td>periodic ~50ms gaps</td>
+          </tr>
+          <tr>
+            <td><span class="hl">Shenandoah (gen)</span></td>
+            <td>5–10 ms</td>
+            <td>~5%</td>
+            <td>predictable web workloads — <span class="hl green">UBI default</span></td>
+            <td>slight p99 ripple</td>
+          </tr>
+          <tr>
+            <td><span class="hl purple">ZGC (gen)</span></td>
+            <td>&lt;1 ms</td>
+            <td>~15%</td>
+            <td>ultra-low latency, large heaps</td>
+            <td>flat p99</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="takeaway">Spring Boot 4.0 + UBI9 OpenJDK 21 = Shenandoah by default. <br/>The observability stack you just saw shows you the pauses are gone.</div>
+      <aside class="notes">
+        Final framing: this is the "Red Hat dividend." Without changing a flag in your Containerfile, without changing a line of application code, you ship a Spring Boot service whose tail latency is bounded by ~10ms GC pauses — same workload on Temurin would see ~50ms G1 pauses showing up in your p99. That's a real, measurable improvement that comes for free with UBI. The observability layer is what lets you SEE the improvement.
+      </aside>
+    </section>
+
+  </div>
+</div>
+
+<!-- Reveal.js core + plugins -->
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: "c/t",
+    transition: "fade",
+    transitionSpeed: "default",
+    backgroundTransition: "fade",
+    width: 1280,
+    height: 800,
+    margin: 0.06,
+    minScale: 0.4,
+    maxScale: 1.4,
+    plugins: [ RevealNotes, RevealHighlight ]
+  });
+</script>
+
+</body>
+</html>

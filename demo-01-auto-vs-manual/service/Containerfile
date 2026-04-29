@@ -1,0 +1,34 @@
+# Demo 01 service — Spring Boot 4.0.x on UBI9 OpenJDK 21
+# Two-stage build: Maven on UBI9 OpenJDK 21 builder, then UBI9 OpenJDK 21-runtime
+
+# ---- Stage 1: Build -----------------------------------------------------
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.21-1 AS build
+USER root
+WORKDIR /build
+
+COPY pom.xml ./
+COPY src ./src
+
+# Use -Dmaven.test.skip=true (NOT -DskipTests) to avoid compiling tests.
+RUN mvn -B -ntp clean package -Dmaven.test.skip=true
+
+# ---- Stage 2: Runtime ---------------------------------------------------
+FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.21-1
+USER root
+WORKDIR /app
+
+# Pull in the OTel Java agent. Pin the version here.
+ARG OTEL_AGENT_VERSION=2.10.0
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+RUN chmod 0644 /app/opentelemetry-javaagent.jar
+
+COPY --from=build /build/target/*.jar /app/app.jar
+
+# Drop privileges
+USER 185
+
+EXPOSE 8080
+
+# AGENT_ENABLED=true at runtime engages the agent; otherwise plain java -jar.
+# This lets us toggle modes without rebuilding the image.
+ENTRYPOINT ["sh", "-c", "if [ \"$AGENT_ENABLED\" = \"true\" ]; then exec java -javaagent:/app/opentelemetry-javaagent.jar -jar /app/app.jar; else exec java -jar /app/app.jar; fi"]

@@ -1,0 +1,64 @@
+# Demo 01 — Spring Boot 4.0.x application config
+# Observability is wired via micrometer-tracing-bridge-otel + OTLP exporter.
+
+spring:
+  application:
+    name: demo01-service
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, loggers
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        # Emit histogram buckets so we can correlate request latency with traces via exemplars
+        http.server.requests: true
+        jvm.gc.pause: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+        jvm.gc.pause: 0.5, 0.95, 0.99
+  tracing:
+    sampling:
+      probability: 1.0      # 100% in demo; real prod uses parentbased_traceidratio with a smaller value
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# OpenTelemetry exporter — used by both the agent and the Micrometer bridge.
+# When the agent is active these env vars take precedence; when it's not,
+# Spring Boot's auto-config still uses these to push spans via OTLP.
+otel:
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318}
+      protocol: ${OTEL_EXPORTER_OTLP_PROTOCOL:http/protobuf}
+  service:
+    name: ${OTEL_SERVICE_NAME:demo01-service}
+
+logging:
+  level:
+    root: INFO
+    com.example.demo01: DEBUG
+  # The pattern includes traceId/spanId from MDC. Spring Boot 4.x adds these
+  # automatically when micrometer-tracing-bridge-otel is on the classpath.
+  pattern:
+    correlation: "[%X{traceId:-},%X{spanId:-}]"
+    console: >-
+      %clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:-}){magenta}
+      %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan}
+      %clr(${spring.application.name:-}){yellow} %clr([%X{traceId:-},%X{spanId:-}]){blue}
+      %clr(:){faint} %m%n%wEx

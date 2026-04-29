@@ -1,0 +1,53 @@
+# Datasources for demo 01 — wired to the otel-lgtm built-in stores.
+# Trace-to-logs and trace-to-metrics correlation rules live here.
+
+apiVersion: 1
+
+datasources:
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://localhost:3200
+    uid: tempo
+    isDefault: false
+    jsonData:
+      httpMethod: GET
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-1m"
+        spanEndTimeShift: "1m"
+        tags: [{ key: "service.name", value: "service" }]
+        filterByTraceID: true
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags: [{ key: "service.name", value: "service" }]
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://localhost:3100
+    uid: loki
+    isDefault: false
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          datasourceUid: tempo
+          # Pulls the traceId out of the Logback pattern: [traceId,spanId]
+          matcherRegex: "\\[([a-f0-9]{32}),"
+          url: "$${__value.raw}"
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://localhost:9090
+    uid: prometheus
+    isDefault: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo

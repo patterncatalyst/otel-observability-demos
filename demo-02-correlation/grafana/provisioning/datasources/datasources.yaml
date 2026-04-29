@@ -1,0 +1,72 @@
+# Datasources for demo 02 — wired for the full three-signal pivot.
+# Tempo links into Loki via traceId, into Prometheus via service.name.
+# Loki extracts traceId from the Logback %X{traceId} pattern.
+# Prometheus carries trace exemplars on the histogram buckets.
+
+apiVersion: 1
+
+datasources:
+
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://localhost:3200
+    uid: tempo
+    isDefault: false
+    jsonData:
+      httpMethod: GET
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-1m"
+        spanEndTimeShift: "1m"
+        tags:
+          - { key: "service.name", value: "service" }
+        filterByTraceID: true
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags:
+          - { key: "service.name", value: "service" }
+        queries:
+          - name: "Request rate"
+            query: 'sum(rate(http_server_requests_seconds_count{$$__tags}[1m]))'
+          - name: "Request p99"
+            query: 'histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{$$__tags}[1m])))'
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      lokiSearch:
+        datasourceUid: loki
+      spanBar:
+        type: "Tag"
+        tag: "http.status_code"
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://localhost:3100
+    uid: loki
+    isDefault: false
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          datasourceUid: tempo
+          # Logback pattern is [traceId,spanId] — capture the 32-char traceId.
+          matcherRegex: "\\[([a-f0-9]{32}),"
+          url: "$${__value.raw}"
+          urlDisplayLabel: "View Trace"
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://localhost:9090
+    uid: prometheus
+    isDefault: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+          urlDisplayLabel: "Trace"

@@ -1,0 +1,21 @@
+# order-service — Spring Boot 4.0.x, UBI9 OpenJDK 21
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.21-1 AS build
+USER root
+WORKDIR /build
+COPY pom.xml ./
+COPY src ./src
+RUN mvn -B -ntp clean package -Dmaven.test.skip=true
+
+FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.21-1
+USER root
+WORKDIR /app
+
+ARG OTEL_AGENT_VERSION=2.10.0
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v${OTEL_AGENT_VERSION}/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+RUN chmod 0644 /app/opentelemetry-javaagent.jar
+
+COPY --from=build /build/target/*.jar /app/app.jar
+
+USER 185
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
