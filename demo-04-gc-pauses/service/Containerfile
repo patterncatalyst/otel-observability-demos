@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/openjdk-21:1.21-1 AS build
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.24 AS build
 USER root
 WORKDIR /build
 COPY pom.xml ./

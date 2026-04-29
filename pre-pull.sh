@@ -17,7 +17,7 @@ IMAGES=(
   "docker.io/grafana/otel-lgtm:0.8.1"
   "docker.io/otel/opentelemetry-collector-contrib:0.114.0"
   "registry.access.redhat.com/ubi9/openjdk-21-runtime:1.21-1"
-  "registry.access.redhat.com/ubi9/openjdk-21:1.21-1"
+  "registry.access.redhat.com/ubi9/openjdk-21:1.24"
   "registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24"
   "registry.access.redhat.com/ubi9/openjdk-25:1.24"
 )

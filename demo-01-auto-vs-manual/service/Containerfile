@@ -2,7 +2,7 @@
 # Two-stage build: Maven on UBI9 OpenJDK 21 builder, then UBI9 OpenJDK 21-runtime
 
 # ---- Stage 1: Build -----------------------------------------------------
-FROM registry.access.redhat.com/ubi9/openjdk-21:1.21-1 AS build
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.24 AS build
 USER root
 WORKDIR /build
 
