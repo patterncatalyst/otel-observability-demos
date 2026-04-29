@@ -36,21 +36,21 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.50, sum by (le, gc_mode) (rate(jvm_gc_pause_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, gc_mode) (rate(jvm_gc_duration_seconds_bucket[1m])))",
           "legendFormat": "p50 — {{gc_mode}}",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.95, sum by (le, gc_mode) (rate(jvm_gc_pause_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, gc_mode) (rate(jvm_gc_duration_seconds_bucket[1m])))",
           "legendFormat": "p95 — {{gc_mode}}",
           "refId": "B"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.99, sum by (le, gc_mode) (rate(jvm_gc_pause_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, gc_mode) (rate(jvm_gc_duration_seconds_bucket[1m])))",
           "legendFormat": "p99 — {{gc_mode}}",
           "refId": "C"
         }
@@ -75,7 +75,7 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_request_duration_seconds_bucket[1m])))",
           "legendFormat": "p99 {{uri}}",
           "refId": "A"
         }
@@ -123,7 +123,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (action, cause) (rate(jvm_gc_pause_seconds_count[1m]))",
+          "expr": "sum by (action, cause) (rate(jvm_gc_duration_seconds_count[1m]))",
           "legendFormat": "{{action}} / {{cause}}",
           "refId": "A"
         }
