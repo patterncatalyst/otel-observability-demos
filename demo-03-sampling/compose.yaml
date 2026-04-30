@@ -58,6 +58,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_SERVICE_NAME: "demo03-service"
       OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0"
+      OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED: "true"
+      OTEL_JAVAAGENT_DEBUG: "false"
       # The sampling probability is read from env. demo.sh swaps it between modes.
       # 1.0 = send all, let the Collector decide (tail mode)
       # 0.05 = head sample at the app (head mode)

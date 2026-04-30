@@ -81,7 +81,7 @@ check_prereqs() {
       missing=$((missing+1))
     fi
   done
-  [[ $missing -gt 0 ]] && { warn "Install missing tools and re-run."; exit 1; }
+  if [[ $missing -gt 0 ]]; then warn "Install missing tools and re-run."; exit 1; fi
 }
 
 # ---- Health waits --------------------------------------------------------
