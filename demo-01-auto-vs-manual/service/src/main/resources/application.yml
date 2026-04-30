@@ -56,9 +56,9 @@ logging:
   # The pattern includes traceId/spanId from MDC. Spring Boot 4.x adds these
   # automatically when micrometer-tracing-bridge-otel is on the classpath.
   pattern:
-    correlation: "[%X{traceId:-},%X{spanId:-}]"
+    correlation: "[%X{trace_id:-},%X{span_id:-}]"
     console: >-
       %clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:-}){magenta}
       %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan}
-      %clr(${spring.application.name:-}){yellow} %clr([%X{traceId:-},%X{spanId:-}]){blue}
+      %clr(${spring.application.name:-}){yellow} %clr([%X{trace_id:-},%X{span_id:-}]){blue}
       %clr(:){faint} %m%n%wEx

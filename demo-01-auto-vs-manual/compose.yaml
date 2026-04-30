@@ -45,12 +45,16 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_SERVICE_NAME: "demo01-service"
       OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0"
+      OTEL_INSTRUMENTATION_MICROMETER_ENABLED: "true"
+      OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED: "true"
+      OTEL_JAVAAGENT_DEBUG: "true"
       # The MODE env var is read by demo.sh; the service itself reacts to AGENT_ENABLED
       AGENT_ENABLED: "${AGENT_ENABLED:-false}"
       # JVM flags — UBI9 default GC is Shenandoah; we don't override here
       JAVA_TOOL_OPTIONS: >-
         -XX:+UseContainerSupport
         -XX:MaxRAMPercentage=75
+        -Dotel.instrumentation.micrometer.enabled=true
     depends_on:
       lgtm:
         condition: service_healthy
