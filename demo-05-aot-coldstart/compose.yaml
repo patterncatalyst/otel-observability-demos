@@ -33,7 +33,7 @@ services:
     build:
       context: ./service-classic
       dockerfile: Containerfile
-    container_name: demo05-classic
+    container_name: demo05-service-classic
     ports:
       - "8085:8080"
     environment:
@@ -41,6 +41,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_SERVICE_NAME: "service-classic"
       OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,startup.mode=classic"
+      OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED: "true"
+      OTEL_JAVAAGENT_DEBUG: "false"
       JAVA_TOOL_OPTIONS: >-
         -javaagent:/app/opentelemetry-javaagent.jar
         -XX:+UseContainerSupport
@@ -59,7 +61,7 @@ services:
     build:
       context: ./service-aot
       dockerfile: Containerfile
-    container_name: demo05-aot
+    container_name: demo05-service-aot
     ports:
       - "8086:8080"
     environment:
@@ -69,6 +71,97 @@ services:
       OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,startup.mode=aot-cache"
       JAVA_TOOL_OPTIONS: >-
         -javaagent:/app/opentelemetry-javaagent.jar
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+        -XX:AOTCache=/app/app.aot
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+
+  # No-agent variants reuse the SAME images as classic/aot but skip the
+  # OTel javaagent at runtime. Used for time-classic-noagent and
+  # time-aot-noagent comparisons (Option C: side-by-side agent-cost story).
+  # No build section -- these reuse the already-built images.
+  service-classic-noagent:
+    image: otel-demo-05-service-classic
+    container_name: demo05-service-classic-noagent
+    ports:
+      - "8087:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+
+  service-aot-noagent:
+    image: otel-demo-05-service-aot
+    container_name: demo05-service-aot-noagent
+    ports:
+      - "8088:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+        -XX:AOTCache=/app/app.aot
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+
+  # SDK-telemetry variants reuse the SAME images but configure Spring Boot's
+  # native Micrometer + OpenTelemetry SDK exporters instead of attaching the
+  # OTel javaagent. ~80% of telemetry coverage at ~5% of the cold-start cost.
+  service-classic-sdk:
+    image: otel-demo-05-service-classic
+    container_name: demo05-service-classic-sdk
+    ports:
+      - "8089:8080"
+    environment:
+      OTEL_SERVICE_NAME: "service-classic-sdk"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,startup.mode=classic-sdk"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: "http://lgtm:4318/v1/traces"
+      MANAGEMENT_OPENTELEMETRY_METRICS_EXPORT_OTLP_ENDPOINT: "http://lgtm:4318/v1/metrics"
+      MANAGEMENT_OPENTELEMETRY_METRICS_EXPORT_OTLP_STEP: "10s"
+      JAVA_TOOL_OPTIONS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+
+  service-aot-sdk:
+    image: otel-demo-05-service-aot
+    container_name: demo05-service-aot-sdk
+    ports:
+      - "8090:8080"
+    environment:
+      OTEL_SERVICE_NAME: "service-aot-sdk"
+      OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,startup.mode=aot-sdk"
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: "http://lgtm:4318/v1/traces"
+      MANAGEMENT_OPENTELEMETRY_METRICS_EXPORT_OTLP_ENDPOINT: "http://lgtm:4318/v1/metrics"
+      MANAGEMENT_OPENTELEMETRY_METRICS_EXPORT_OTLP_STEP: "10s"
+      JAVA_TOOL_OPTIONS: >-
         -XX:+UseContainerSupport
         -XX:MaxRAMPercentage=75
         -XX:AOTCache=/app/app.aot

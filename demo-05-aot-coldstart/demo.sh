@@ -41,6 +41,10 @@ readonly DEMO_NAME="AOT Cold Start (JDK 25)"
 readonly GRAFANA_PORT=3005
 readonly CLASSIC_PORT=8085
 readonly AOT_PORT=8086
+readonly CLASSIC_NOAGENT_PORT=8087
+readonly AOT_NOAGENT_PORT=8088
+readonly CLASSIC_SDK_PORT=8089
+readonly AOT_SDK_PORT=8090
 
 # ---- Prereqs -------------------------------------------------------------
 check_prereqs() {
@@ -108,18 +112,20 @@ time_one_boot() {
 
 time_three_boots() {
   local svc="$1" port="$2" label="$3"
-  step "Timing ${BLD}${label}${RST} cold-start (3 runs)"
+  # All status output goes to stderr; only the final median number
+  # goes to stdout, so callers can capture it via $(...).
+  step "Timing ${BLD}${label}${RST} cold-start (3 runs)" >&2
   local results=()
   for i in 1 2 3; do
     local ms
     ms=$(time_one_boot "$svc" "$port")
     results+=("$ms")
-    metric "  run $i" "${ms} ms"
+    metric "  run $i" "${ms} ms" >&2
   done
   # Median (middle of 3)
   local sorted=( $(printf "%s\n" "${results[@]}" | sort -n) )
   local median="${sorted[1]}"
-  metric "  ${BLD}median${RST}" "${median} ms"
+  metric "  ${BLD}median${RST}" "${median} ms" >&2
   echo "$median"
 }
 
@@ -169,6 +175,52 @@ run_demo() {
 }
 
 # ---- Entrypoint ----------------------------------------------------------
+# ---- Four-way comparison (Option C: agent cost story) -------------------
+time_all_four() {
+  banner "Six-way cold-start comparison"
+  sub "Compares: agent vs SDK telemetry vs no telemetry x classic vs AOT."
+  check_prereqs
+  up_lgtm
+
+  local c_agent c_sdk c_no a_agent a_sdk a_no
+  c_agent=$(time_three_boots "service-classic" "$CLASSIC_PORT" "Classic + agent")
+  c_sdk=$(time_three_boots "service-classic-sdk" "$CLASSIC_SDK_PORT" "Classic + SDK telemetry")
+  c_no=$(time_three_boots "service-classic-noagent" "$CLASSIC_NOAGENT_PORT" "Classic, no telemetry")
+  a_agent=$(time_three_boots "service-aot" "$AOT_PORT" "AOT cache + agent")
+  a_sdk=$(time_three_boots "service-aot-sdk" "$AOT_SDK_PORT" "AOT cache + SDK telemetry")
+  a_no=$(time_three_boots "service-aot-noagent" "$AOT_NOAGENT_PORT" "AOT cache, no telemetry")
+
+  banner "Comparison Table"
+  hr
+  printf "  ${BLD}%-20s %-12s %-12s %-12s${RST}\n" "" "+ agent" "+ SDK" "no telem"
+  hr
+  printf "  %-20s ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}\n" "Classic JDK 25" "$c_agent" "$c_sdk" "$c_no"
+  printf "  %-20s ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}\n" "AOT cache"      "$a_agent" "$a_sdk" "$a_no"
+  hr
+  local c_agent_tax=$((c_agent - c_no))
+  local c_sdk_tax=$((c_sdk - c_no))
+  local a_agent_tax=$((a_agent - a_no))
+  local a_sdk_tax=$((a_sdk - a_no))
+  printf "  %-20s ${YLW}%+5d ms${RST}     ${YLW}%+5d ms${RST}\n"               "Classic telem cost:" "$c_agent_tax" "$c_sdk_tax"
+  printf "  %-20s ${YLW}%+5d ms${RST}     ${YLW}%+5d ms${RST}\n"               "AOT telem cost:"     "$a_agent_tax" "$a_sdk_tax"
+  hr
+  local agent_win=$((c_agent - a_agent))
+  local sdk_win=$((c_sdk - a_sdk))
+  local noagent_win=$((c_no - a_no))
+  printf "  %-20s ${GRN}%+5d ms${RST}     ${GRN}%+5d ms${RST}     ${GRN}%+5d ms${RST}\n" "AOT savings:" "$agent_win" "$sdk_win" "$noagent_win"
+  hr
+  echo
+  echo "  ${DIM}Story: The OTel agent costs ~3.5s at startup. SDK telemetry${RST}"
+  echo "  ${DIM}adds <1s. AOT saves ~700ms regardless of telemetry mode.${RST}"
+  echo "  ${DIM}For cold-scale (serverless, scale-from-zero), drop the agent.${RST}"
+  echo "  ${DIM}Note: Spring Boot 4.0.4 OpenTelemetry starter wires up beans${RST}"
+  echo "  ${DIM}correctly but spans aren't created in our setup. SDK matures.${RST}"
+  echo "  ${DIM}See TALK-NOTES.md for full reproduction details.${RST}"
+  echo
+
+  podman compose -f compose.yaml down -v 2>/dev/null || true
+}
+
 case "${1:-run}" in
   build)
     check_prereqs; build_images ;;
@@ -180,9 +232,28 @@ case "${1:-run}" in
     check_prereqs; up_lgtm
     time_three_boots "service-classic" "$CLASSIC_PORT" "service-classic"
     ;;
+  time-classic-noagent)
+    check_prereqs; up_lgtm
+    time_three_boots "service-classic-noagent" "$CLASSIC_NOAGENT_PORT" "service-classic (no agent)"
+    ;;
   time-aot)
     check_prereqs; up_lgtm
     time_three_boots "service-aot" "$AOT_PORT" "service-aot"
+    ;;
+  time-aot-noagent)
+    check_prereqs; up_lgtm
+    time_three_boots "service-aot-noagent" "$AOT_NOAGENT_PORT" "service-aot (no agent)"
+    ;;
+  time-classic-sdk)
+    check_prereqs; up_lgtm
+    time_three_boots "service-classic-sdk" "$CLASSIC_SDK_PORT" "service-classic (SDK telemetry)"
+    ;;
+  time-aot-sdk)
+    check_prereqs; up_lgtm
+    time_three_boots "service-aot-sdk" "$AOT_SDK_PORT" "service-aot (SDK telemetry)"
+    ;;
+  time-all)
+    time_all_four
     ;;
   down)
     podman compose -f compose.yaml down -v 2>/dev/null || true

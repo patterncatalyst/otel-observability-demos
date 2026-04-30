@@ -4,10 +4,21 @@ spring:
   threads:
     virtual:
       enabled: true
-
+  datasource:
+    url: jdbc:h2:mem:widgets;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
 server:
   port: 8080
-
 management:
   endpoints:
     web:
@@ -31,7 +42,6 @@ management:
     metrics:
       export:
         enabled: true
-
 otel:
   exporter:
     otlp:
@@ -39,15 +49,14 @@ otel:
       protocol: ${OTEL_EXPORTER_OTLP_PROTOCOL:http/protobuf}
   service:
     name: ${OTEL_SERVICE_NAME:demo05-service}
-
 logging:
   level:
     root: INFO
     com.example.coldstart: DEBUG
   pattern:
-    correlation: "[%X{traceId:-},%X{spanId:-}]"
+    correlation: "[%X{trace_id:-},%X{span_id:-}]"
     console: >-
       %clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:-}){magenta}
       %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan}
-      %clr(${spring.application.name:-}){yellow} %clr([%X{traceId:-},%X{spanId:-}]){blue}
+      %clr(${spring.application.name:-}){yellow} %clr([%X{trace_id:-},%X{span_id:-}]){blue}
       %clr(:){faint} %m%n%wEx
