@@ -1,7 +1,7 @@
 {
   "type": "excalidraw",
   "version": 2,
-  "source": "https://excalidraw.com",
+  "source": "https://excalidraw-jetbrains-plugin",
   "elements": [
     {
       "version": 1,
@@ -29,13 +29,13 @@
       "strokeColor": "#00BCD4",
       "backgroundColor": "transparent",
       "seed": 1950339334,
-      "text": "08 \u2014 OTel Signal Flow",
+      "text": "08 — OTel Signal Flow",
       "fontSize": 28,
       "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "middle",
       "containerId": null,
-      "originalText": "08 \u2014 OTel Signal Flow",
+      "originalText": "08 — OTel Signal Flow",
       "lineHeight": 1.25,
       "autoResize": true
     },
@@ -925,24 +925,20 @@
       "strokeColor": "#E84855",
       "backgroundColor": "transparent",
       "seed": 293225800,
-      "text": "traceId  \u2501\u2501\u2501\u2501\u2501 shared across all three signals  (this is what makes correlation work)",
+      "text": "traceId  ━━━━━ shared across all three signals  (this is what makes correlation work)",
       "fontSize": 16,
       "fontFamily": 1,
       "textAlign": "left",
       "verticalAlign": "middle",
       "containerId": null,
-      "originalText": "traceId  \u2501\u2501\u2501\u2501\u2501 shared across all three signals  (this is what makes correlation work)",
+      "originalText": "traceId  ━━━━━ shared across all three signals  (this is what makes correlation work)",
       "lineHeight": 1.25,
       "autoResize": true
     }
   ],
   "appState": {
-    "viewBackgroundColor": "#0A1628",
-    "currentItemFontFamily": 1,
-    "currentItemStrokeColor": "#ECF0F1",
-    "currentItemBackgroundColor": "transparent",
-    "gridSize": 20,
-    "gridStep": 5
+    "gridSize": null,
+    "viewBackgroundColor": "#ffffff"
   },
   "files": {}
 }
