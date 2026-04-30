@@ -45,6 +45,8 @@ readonly CLASSIC_NOAGENT_PORT=8087
 readonly AOT_NOAGENT_PORT=8088
 readonly CLASSIC_SDK_PORT=8089
 readonly AOT_SDK_PORT=8090
+readonly QUARKUS_PORT=8091
+readonly QUARKUS_LEYDEN_PORT=8092
 
 # ---- Prereqs -------------------------------------------------------------
 check_prereqs() {
@@ -88,37 +90,53 @@ up_lgtm() {
 # ---- Cold-start timing ---------------------------------------------------
 # Boot a service from scratch, measure the time from container start to /actuator/health 200.
 time_one_boot() {
-  local svc="$1" port="$2"
-  # Make sure it's down
+  # Parse the JVM's own "started in X.XXXs" line from container logs.
+  # Spring Boot:  "Started ColdStartApplication in 3.881 seconds"
+  # Quarkus:      "started in 0.178s"
+  # The 4th argument (health_path) is unused now; kept for backward
+  # compatibility with callers that still pass it.
+  local svc="$1" port="$2" health_path="${3:-/actuator/health}"
+
+  # Make sure any prior instance is gone
   podman stop "demo05-${svc}" >/dev/null 2>&1 || true
   podman rm   "demo05-${svc}" >/dev/null 2>&1 || true
 
-  local start_ms=$(($(date +%s%N) / 1000000))
   podman compose -f compose.yaml up -d "${svc}" >/dev/null 2>&1
 
-  # Poll until healthy, with millisecond precision
-  while ! curl -sf "http://localhost:${port}/actuator/health" >/dev/null 2>&1; do
-    # If the container died, bail
+  # Poll the container logs for the startup line. Cap at 30 seconds.
+  local secs=""
+  local attempt=0
+  while [[ -z "$secs" ]] && [[ $attempt -lt 600 ]]; do
+    # If the container died, bail with the logs
     if ! podman ps --format "{{.Names}}" | grep -q "demo05-${svc}"; then
       fail "Container demo05-${svc} died during boot"
       podman logs "demo05-${svc}" 2>&1 | tail -20
       return 1
     fi
-    sleep 0.05
+    # Extract the first match of either Spring Boot or Quarkus startup line.
+    secs=$(podman logs "demo05-${svc}" 2>&1 |       grep -oP "(?:Started [A-Za-z]+ in |started in )\K[\d.]+" | head -1)
+    [[ -z "$secs" ]] && sleep 0.05
+    attempt=$((attempt + 1))
   done
-  local end_ms=$(($(date +%s%N) / 1000000))
-  echo $((end_ms - start_ms))
+
+  if [[ -z "$secs" ]]; then
+    fail "Could not parse startup time from demo05-${svc} after 30s"
+    return 1
+  fi
+
+  # Convert seconds (float) to milliseconds (int)
+  echo "$secs" | awk '{printf "%d\n", $1 * 1000}'
 }
 
 time_three_boots() {
-  local svc="$1" port="$2" label="$3"
+  local svc="$1" port="$2" label="$3" health_path="${4:-/actuator/health}"
   # All status output goes to stderr; only the final median number
   # goes to stdout, so callers can capture it via $(...).
   step "Timing ${BLD}${label}${RST} cold-start (3 runs)" >&2
   local results=()
   for i in 1 2 3; do
     local ms
-    ms=$(time_one_boot "$svc" "$port")
+    ms=$(time_one_boot "$svc" "$port" "$health_path")
     results+=("$ms")
     metric "  run $i" "${ms} ms" >&2
   done
@@ -177,45 +195,49 @@ run_demo() {
 # ---- Entrypoint ----------------------------------------------------------
 # ---- Four-way comparison (Option C: agent cost story) -------------------
 time_all_four() {
-  banner "Six-way cold-start comparison"
-  sub "Compares: agent vs SDK telemetry vs no telemetry x classic vs AOT."
+  banner "Cold-start comparison: Spring Boot vs Quarkus"
+  sub "Same JDK 25. Same Project Leyden. Very different outcomes."
   check_prereqs
   up_lgtm
 
-  local c_agent c_sdk c_no a_agent a_sdk a_no
-  c_agent=$(time_three_boots "service-classic" "$CLASSIC_PORT" "Classic + agent")
-  c_sdk=$(time_three_boots "service-classic-sdk" "$CLASSIC_SDK_PORT" "Classic + SDK telemetry")
-  c_no=$(time_three_boots "service-classic-noagent" "$CLASSIC_NOAGENT_PORT" "Classic, no telemetry")
-  a_agent=$(time_three_boots "service-aot" "$AOT_PORT" "AOT cache + agent")
-  a_sdk=$(time_three_boots "service-aot-sdk" "$AOT_SDK_PORT" "AOT cache + SDK telemetry")
-  a_no=$(time_three_boots "service-aot-noagent" "$AOT_NOAGENT_PORT" "AOT cache, no telemetry")
+  local c_agent c_sdk c_no a_agent a_sdk a_no q_base q_leyden
+  c_agent=$(time_three_boots "service-classic"          "$CLASSIC_PORT"         "Spring Classic + agent")
+  c_sdk=$(time_three_boots "service-classic-sdk"         "$CLASSIC_SDK_PORT"     "Spring Classic + SDK telemetry")
+  c_no=$(time_three_boots "service-classic-noagent"      "$CLASSIC_NOAGENT_PORT" "Spring Classic, no telemetry")
+  a_agent=$(time_three_boots "service-aot"               "$AOT_PORT"             "Spring AOT + agent")
+  a_sdk=$(time_three_boots "service-aot-sdk"             "$AOT_SDK_PORT"         "Spring AOT + SDK telemetry")
+  a_no=$(time_three_boots "service-aot-noagent"          "$AOT_NOAGENT_PORT"     "Spring AOT, no telemetry")
+  q_base=$(time_three_boots "service-quarkus"            "$QUARKUS_PORT"         "Quarkus baseline" "/q/health/live")
+  q_leyden=$(time_three_boots "service-quarkus-leyden"   "$QUARKUS_LEYDEN_PORT"  "Quarkus + Leyden AOT" "/q/health/live")
 
-  banner "Comparison Table"
+  banner "Spring Boot 4 — full telemetry comparison"
   hr
-  printf "  ${BLD}%-20s %-12s %-12s %-12s${RST}\n" "" "+ agent" "+ SDK" "no telem"
+  printf "  ${BLD}%-22s %-10s %-10s %-10s${RST}\n" "" "+ agent" "+ SDK" "no telem"
   hr
-  printf "  %-20s ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}\n" "Classic JDK 25" "$c_agent" "$c_sdk" "$c_no"
-  printf "  %-20s ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}     ${BLD}%5d ms${RST}\n" "AOT cache"      "$a_agent" "$a_sdk" "$a_no"
-  hr
-  local c_agent_tax=$((c_agent - c_no))
-  local c_sdk_tax=$((c_sdk - c_no))
-  local a_agent_tax=$((a_agent - a_no))
-  local a_sdk_tax=$((a_sdk - a_no))
-  printf "  %-20s ${YLW}%+5d ms${RST}     ${YLW}%+5d ms${RST}\n"               "Classic telem cost:" "$c_agent_tax" "$c_sdk_tax"
-  printf "  %-20s ${YLW}%+5d ms${RST}     ${YLW}%+5d ms${RST}\n"               "AOT telem cost:"     "$a_agent_tax" "$a_sdk_tax"
-  hr
-  local agent_win=$((c_agent - a_agent))
-  local sdk_win=$((c_sdk - a_sdk))
-  local noagent_win=$((c_no - a_no))
-  printf "  %-20s ${GRN}%+5d ms${RST}     ${GRN}%+5d ms${RST}     ${GRN}%+5d ms${RST}\n" "AOT savings:" "$agent_win" "$sdk_win" "$noagent_win"
+  printf "  %-22s ${BLD}%5d ms${RST}    ${BLD}%5d ms${RST}    ${BLD}%5d ms${RST}\n" "Classic JDK 25" "$c_agent" "$c_sdk" "$c_no"
+  printf "  %-22s ${BLD}%5d ms${RST}    ${BLD}%5d ms${RST}    ${BLD}%5d ms${RST}\n" "AOT cache"      "$a_agent" "$a_sdk" "$a_no"
   hr
   echo
-  echo "  ${DIM}Story: The OTel agent costs ~3.5s at startup. SDK telemetry${RST}"
-  echo "  ${DIM}adds <1s. AOT saves ~700ms regardless of telemetry mode.${RST}"
-  echo "  ${DIM}For cold-scale (serverless, scale-from-zero), drop the agent.${RST}"
-  echo "  ${DIM}Note: Spring Boot 4.0.4 OpenTelemetry starter wires up beans${RST}"
-  echo "  ${DIM}correctly but spans aren't created in our setup. SDK matures.${RST}"
-  echo "  ${DIM}See TALK-NOTES.md for full reproduction details.${RST}"
+
+  banner "Cross-framework comparison (no telemetry, apples-to-apples)"
+  hr
+  printf "  ${BLD}%-30s %-12s %-14s${RST}\n" "Configuration" "Cold start" "AOT savings"
+  hr
+  printf "  %-30s ${BLD}%5d ms${RST}      ${DIM}(baseline)${RST}\n"            "Spring Boot Classic"   "$c_no"
+  local spring_save=$((c_no - a_no))
+  local spring_pct=$(awk -v s="$spring_save" -v c="$c_no" 'BEGIN { printf "%.0f", (s/c)*100 }')
+  printf "  %-30s ${BLD}%5d ms${RST}      ${GRN}-%d ms (~%d%%)${RST}\n"        "Spring Boot + AOT"     "$a_no" "$spring_save" "$spring_pct"
+  printf "  %-30s ${BLD}%5d ms${RST}      ${DIM}(baseline)${RST}\n"            "Quarkus Classic"       "$q_base"
+  local q_save=$((q_base - q_leyden))
+  local q_pct=$(awk -v s="$q_save" -v c="$q_base" 'BEGIN { printf "%.0f", (s/c)*100 }')
+  printf "  %-30s ${BLD}%5d ms${RST}      ${GRN}-%d ms (~%d%%)${RST}\n"        "Quarkus + Leyden"      "$q_leyden" "$q_save" "$q_pct"
+  hr
+  echo
+  echo "  ${DIM}Times are JVM-internal (parsed from \"started in X.Xs\" log).${RST}"
+  echo "  ${DIM}Same JDK 25. Same Project Leyden flag. The difference is${RST}"
+  echo "  ${DIM}framework architecture: Quarkus does bean wiring at build time,${RST}"
+  echo "  ${DIM}so AOT cache amplifies an already-fast startup. Spring Boot${RST}"
+  echo "  ${DIM}does it at startup, so AOT cache helps modestly.${RST}"
   echo
 
   podman compose -f compose.yaml down -v 2>/dev/null || true
@@ -251,6 +273,14 @@ case "${1:-run}" in
   time-aot-sdk)
     check_prereqs; up_lgtm
     time_three_boots "service-aot-sdk" "$AOT_SDK_PORT" "service-aot (SDK telemetry)"
+    ;;
+  time-quarkus)
+    check_prereqs; up_lgtm
+    time_three_boots "service-quarkus" "$QUARKUS_PORT" "Quarkus baseline" "/q/health/live"
+    ;;
+  time-quarkus-leyden)
+    check_prereqs; up_lgtm
+    time_three_boots "service-quarkus-leyden" "$QUARKUS_LEYDEN_PORT" "Quarkus + Leyden" "/q/health/live"
     ;;
   time-all)
     time_all_four

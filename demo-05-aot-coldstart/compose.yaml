@@ -174,3 +174,40 @@ services:
       timeout: 2s
       retries: 60
       start_period: 5s
+
+  # ── Quarkus comparison variants ──────────────────────────────────────────
+  # Same JDK 25, same Project Leyden flag, very different cold-start outcome
+  # because Quarkus does bean wiring at BUILD time, not runtime.
+  # No telemetry — apples-to-apples with service-{classic,aot}-noagent.
+
+  service-quarkus:
+    build:
+      context: ./service-quarkus
+      dockerfile: Containerfile
+    image: otel-demo-05-service-quarkus
+    container_name: demo05-service-quarkus
+    ports:
+      - "8091:8080"
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/q/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
+
+  service-quarkus-leyden:
+    build:
+      context: ./service-quarkus-leyden
+      dockerfile: Containerfile
+    image: otel-demo-05-service-quarkus-leyden
+    container_name: demo05-service-quarkus-leyden
+    ports:
+      - "8092:8080"
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/q/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 5s
