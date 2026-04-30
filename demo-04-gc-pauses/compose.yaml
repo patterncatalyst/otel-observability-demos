@@ -41,6 +41,9 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
       OTEL_SERVICE_NAME: "demo04-service"
       OTEL_RESOURCE_ATTRIBUTES: "service.namespace=otel-demos,deployment.environment=demo,service.version=1.0.0,gc.mode=${GC_MODE:-shenandoah}"
+      OTEL_INSTRUMENTATION_LOGBACK_MDC_ENABLED: "true"
+      OTEL_JAVAAGENT_DEBUG: "false"
+      GC_MODE: "${GC_MODE:-shenandoah}"
       # demo.sh templates these per-GC. Default = UBI9 default = Shenandoah, no flag.
       JAVA_TOOL_OPTIONS: >-
         -javaagent:/app/opentelemetry-javaagent.jar

@@ -36,22 +36,22 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.50, sum by (le, gc_mode) (rate(jvm_gc_duration_seconds_bucket[5m])))",
-          "legendFormat": "p50 — {{gc_mode}}",
+          "expr": "histogram_quantile(0.50, sum by (le, jvm_gc_name) (rate(jvm_gc_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50 — {{jvm_gc_name}}",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.95, sum by (le, gc_mode) (rate(jvm_gc_duration_seconds_bucket[5m])))",
-          "legendFormat": "p95 — {{gc_mode}}",
+          "expr": "histogram_quantile(0.95, sum by (le, jvm_gc_name) (rate(jvm_gc_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 — {{jvm_gc_name}}",
           "refId": "B"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.99, sum by (le, gc_mode) (rate(jvm_gc_duration_seconds_bucket[5m])))",
-          "legendFormat": "p99 — {{gc_mode}}",
+          "expr": "histogram_quantile(0.99, sum by (le, jvm_gc_name) (rate(jvm_gc_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99 — {{jvm_gc_name}}",
           "refId": "C"
         }
       ],
@@ -75,8 +75,8 @@
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
           "exemplar": true,
-          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "p99 {{uri}}",
+          "expr": "histogram_quantile(0.99, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99 {{http_route}}",
           "refId": "A"
         }
       ],
@@ -99,8 +99,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (id) (jvm_memory_used_bytes{area=\"heap\"})",
-          "legendFormat": "{{id}}",
+          "expr": "sum by (jvm_memory_pool_name) (jvm_memory_used_bytes{jvm_memory_type=\"heap\"})",
+          "legendFormat": "{{jvm_memory_pool_name}}",
           "refId": "A"
         }
       ],
@@ -123,8 +123,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (action, cause) (rate(jvm_gc_duration_seconds_count[5m]))",
-          "legendFormat": "{{action}} / {{cause}}",
+          "expr": "sum by (jvm_gc_action, jvm_gc_name) (rate(jvm_gc_duration_seconds_count[5m]))",
+          "legendFormat": "{{jvm_gc_action}} / {{jvm_gc_name}}",
           "refId": "A"
         }
       ],

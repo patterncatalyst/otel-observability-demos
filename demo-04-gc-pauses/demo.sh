@@ -44,8 +44,8 @@ readonly SERVICE_PORT=8084
 gc_flags_for() {
   case "$1" in
     shenandoah)
-      # UBI9 default — leave it alone
-      echo ""
+      # Force Shenandoah explicitly (UBI9 default is actually G1)
+      echo "-XX:+UseShenandoahGC"
       ;;
     g1)
       echo "-XX:+UseG1GC -XX:MaxGCPauseMillis=200"
