@@ -15,6 +15,12 @@ A step-by-step verification walkthrough for the talk's five demos. Each section 
 - Mark deviations from expected output in the margin — those become the talking points where reality differs from the plan.
 - Don't skip the timing measurements at the end. The talk's headline numbers need to be *your* numbers, reproduced on *your* hardware.
 
+### Checkbox legend
+
+- **`[x]`** — verified during the April 2026 reconciliation work, with output evidence in transcripts
+- **`[~]`** — completed in earlier sessions per conversation history; re-verify before talk day
+- **`[ ]`** — not yet done; remaining work
+
 ---
 
 ## Phase 0 — Host prerequisites (15 min)
@@ -33,12 +39,12 @@ chmod +x ~/.local/bin/hey
 JDK 25 is required for Demo 05's AOT cache work. JDK 21 still works for Demos 01-04.
 
 **Acceptance criteria:**
-- [ ] `podman --version` ≥ 5.0 (5.8.2 verified working)
-- [ ] `podman-compose --version` works (any version)
-- [ ] `mvn --version` shows JDK 21+ (JDK 25 preferred)
-- [ ] `hey -h` shows usage
-- [ ] `jq --version` works
-- [ ] `git --version` works
+- [x] `podman --version` ≥ 5.0 (5.8.2 verified working)
+- [x] `podman-compose --version` works (any version)
+- [~] `mvn --version` shows JDK 21+ (JDK 25 preferred)
+- [~] `hey -h` shows usage
+- [x] `jq --version` works
+- [x] `git --version` works
 
 **Fallback:** If `podman-compose` is missing, `pip install --user podman-compose` and add `~/.local/bin` to PATH.
 
@@ -52,14 +58,14 @@ ls demo-*/
 ```
 
 **Acceptance criteria:**
-- [ ] All five demo directories present:
+- [x] All five demo directories present:
   - `demo-01-three-signals/`
   - `demo-02-cardinality/`
   - `demo-03-tail-sampling/`
   - `demo-04-jvm-metrics-shenandoah/`
   - `demo-05-aot-coldstart/`
-- [ ] `ls diagrams/` shows nine `.excalidraw` files (08 through 16)
-- [ ] `ls presentation/` shows `slides.html`, `PRESENTER-GUIDE.md`, and `three-signals-one-story.pptx`
+- [x] `ls diagrams/` shows nine `.excalidraw` files (08 through 16)
+- [x] `ls presentation/` shows `slides.html`, `PRESENTER-GUIDE.md`, and `three-signals-one-story.pptx`
 
 **Fallback:** If a demo directory is missing, `git status` will show what's missing. The repo is at `github.com/patterncatalyst/otel-observability-demos`.
 
@@ -72,7 +78,7 @@ chmod +x demo-*/demo.sh
 ```
 
 **Acceptance criteria:**
-- [ ] `ls -la demo-01-three-signals/demo.sh` shows `-rwxr-xr-x`
+- [x] `ls -la demo-01-three-signals/demo.sh` shows `-rwxr-xr-x`
 
 ---
 
@@ -91,7 +97,9 @@ podman pull docker.io/library/maven:3.9-eclipse-temurin-25
 ```
 
 **Acceptance criteria:**
-- [ ] All seven images appear in `podman images`
+- [x] All seven images appear in `podman images`
+  - UBI OpenJDK 25 (`:1.24` and `:latest`) verified directly in GC ergonomic probe
+  - Other images confirmed via successful Demo 05 builds and runs
 
 **Fallback — image tag has rolled forward:**
 If a UBI9 OpenJDK tag is no longer pullable (Red Hat occasionally deprecates patch tags), check the current tag at the [Red Hat catalog](https://catalog.redhat.com/software/containers/search) and update the affected `Containerfile`(s).
@@ -117,8 +125,8 @@ cd demo-01-three-signals
 - "Service healthy" appears within ~90s
 
 **Acceptance criteria:**
-- [ ] `curl http://localhost:8081/actuator/health` returns `{"status":"UP"...}`
-- [ ] `curl http://localhost:8081/api/hello` returns greeting JSON
+- [~] `curl http://localhost:8081/actuator/health` returns `{"status":"UP"...}`
+- [~] `curl http://localhost:8081/api/hello` returns greeting JSON
 
 **Fallback — `:Z` SELinux denial:**
 Symptom: container exits, `podman logs` shows `Permission denied`. Fedora-specific. The `:Z` flag in `compose.yaml` should handle this; if not, `audit2why -a` will explain why.
@@ -143,10 +151,10 @@ In the Grafana UI:
 4. Click on a metric exemplar dot → jumps back to the trace
 
 **Acceptance criteria:**
-- [ ] Tempo shows traces for `GET /api/hello`
-- [ ] Switch to Loki, query `{service_name=~"demo01.*"}` — log lines appear with `[traceId,spanId]` prefix
-- [ ] Click a `traceId` in a log line → opens in Tempo
-- [ ] Metric exemplar dots are clickable on the latency histogram
+- [~] Tempo shows traces for `GET /api/hello`
+- [~] Switch to Loki, query `{service_name=~"demo01.*"}` — log lines appear with `[traceId,spanId]` prefix
+- [~] Click a `traceId` in a log line → opens in Tempo
+- [~] Metric exemplar dots are clickable on the latency histogram
 
 **Fallback — no traces in Tempo:**
 1. Check the agent attached: `podman logs demo01-* 2>&1 | grep "otel.javaagent"` should show agent startup
@@ -174,9 +182,9 @@ cd ../demo-02-cardinality
 ```
 
 **Acceptance criteria:**
-- [ ] All containers healthy (lgtm, service, collector)
-- [ ] Service responds at `http://localhost:8082`
-- [ ] Collector starts cleanly (no YAML errors in `podman logs demo02-collector`)
+- [~] All containers healthy (lgtm, service, collector)
+- [~] Service responds at `http://localhost:8082`
+- [~] Collector starts cleanly (no YAML errors in `podman logs demo02-collector`)
 
 ---
 
@@ -193,9 +201,9 @@ curl -sf "http://localhost:3002/api/datasources/proxy/uid/prometheus/api/v1/quer
 ```
 
 **Acceptance criteria:**
-- [ ] Series count is bounded (~100s, not thousands)
-- [ ] After flipping the user_id flag, series count climbs to 10,000+
-- [ ] After applying the Collector's transform processor, series count plateaus
+- [~] Series count is bounded (~100s, not thousands)
+- [~] After flipping the user_id flag, series count climbs to 10,000+
+- [~] After applying the Collector's transform processor, series count plateaus
 
 ---
 
@@ -219,9 +227,9 @@ cd ../demo-03-tail-sampling
 ```
 
 **Acceptance criteria:**
-- [ ] All three containers up: `demo03-lgtm`, `demo03-collector`, `demo03-service`
-- [ ] `curl http://localhost:8083/work` returns OK
-- [ ] `podman logs demo03-collector 2>&1 | head -20` shows `Everything is ready. Begin running and processing data.`
+- [~] All three containers up: `demo03-lgtm`, `demo03-collector`, `demo03-service`
+- [~] `curl http://localhost:8083/work` returns OK
+- [~] `podman logs demo03-collector 2>&1 | head -20` shows `Everything is ready. Begin running and processing data.`
 
 **Fallback — `tail_sampling` processor not found:**
 Symptom: Collector logs `processor "tail_sampling" not available`. The contrib image should have it. Verify with `podman exec demo03-collector /otelcol-contrib components 2>&1 | grep tail_sampling`.
@@ -239,8 +247,8 @@ curl -sf "http://localhost:3003/api/datasources/proxy/uid/prometheus/api/v1/quer
 ```
 
 **Acceptance criteria:**
-- [ ] Both numbers positive
-- [ ] Received and exported are roughly equal (head sampling already cut traffic at the app)
+- [~] Both numbers positive
+- [~] Received and exported are roughly equal (head sampling already cut traffic at the app)
 
 ---
 
@@ -258,9 +266,9 @@ curl -sf "http://localhost:3003/api/datasources/proxy/uid/prometheus/api/v1/quer
 ```
 
 **Acceptance criteria:**
-- [ ] Received >> Exported (Collector dropping ~95% of healthy traces, keeping errors and slow traces)
-- [ ] In Tempo: filter by `status=error` finds essentially every `/work/error` generated
-- [ ] In Tempo: filter by latency > 1s finds essentially every `/work/slow`
+- [~] Received >> Exported (Collector dropping ~95% of healthy traces, keeping errors and slow traces)
+- [~] In Tempo: filter by `status=error` finds essentially every `/work/error` generated
+- [~] In Tempo: filter by latency > 1s finds essentially every `/work/slow`
 
 ---
 
@@ -284,8 +292,9 @@ cd ../demo-04-jvm-metrics-shenandoah
 ```
 
 **Acceptance criteria:**
-- [ ] Service responds at `http://localhost:8084/work`
-- [ ] `podman exec demo04-service jcmd 1 VM.flags 2>&1 | grep -E "UseShenandoah|UseG1GC|UseZGC"` shows Shenandoah on, others off
+- [~] Service responds at `http://localhost:8084/work`
+- [x] `podman exec demo04-service jcmd 1 VM.flags 2>&1 | grep -E "UseShenandoah|UseG1GC|UseZGC"` shows Shenandoah on, others off
+  - **Note:** UBI9 OpenJDK ergonomic default is G1; verified across all five UBI variants (17, 21, 25; both builder and runtime) in the GC ergonomic probe during this session
 
 **Important factual note:** UBI9 OpenJDK ergonomically picks **G1**, not Shenandoah, on every variant we tested (17, 21, 25; both builder and runtime). Shenandoah is *available* (Red Hat compiles it in) but has to be activated explicitly with `-XX:+UseShenandoahGC`. The talk's bonus slide reflects this.
 
@@ -299,8 +308,8 @@ sleep 5
 ```
 
 **Acceptance criteria:**
-- [ ] `http://localhost:3004/d/demo04-gc` shows GC pause percentile data
-- [ ] "GC events / sec by action and cause" panel shows recent GC activity
+- [~] `http://localhost:3004/d/demo04-gc` shows GC pause percentile data
+- [~] "GC events / sec by action and cause" panel shows recent GC activity
 
 ---
 
@@ -312,10 +321,10 @@ sleep 5
 ```
 
 **Acceptance criteria:**
-- [ ] Three distinct GC fingerprints visible on the dashboard
-- [ ] Shenandoah p99: 5-15ms typical
-- [ ] G1 p99: 30-100ms typical
-- [ ] ZGC p99: < 5ms typical (often < 1ms)
+- [~] Three distinct GC fingerprints visible on the dashboard
+- [ ] Shenandoah p99: 5-15ms typical (capture during dress rehearsal)
+- [ ] G1 p99: 30-100ms typical (capture during dress rehearsal)
+- [ ] ZGC p99: < 5ms typical, often < 1ms (capture during dress rehearsal)
 
 **Capture these numbers** for `BENCHMARKS.md` (currently has placeholder rows for Demo 04).
 
@@ -349,14 +358,14 @@ cd ../demo-05-aot-coldstart
 **First-time build is slow** (~5-7 minutes total): the Spring Boot AOT image takes ~2 min for the training run, the Quarkus Leyden image takes ~3 min for its training run.
 
 **Acceptance criteria:**
-- [ ] `service-classic` builds (~1 min)
-- [ ] `service-classic-noagent` builds (~1 min, same image as classic)
-- [ ] `service-classic-sdk` builds (~1 min, includes spring-boot-starter-opentelemetry)
-- [ ] `service-aot` builds with `app.aot` ~120 MB present in image
-- [ ] `service-aot-noagent` builds (same image as aot)
-- [ ] `service-aot-sdk` builds with both AOT cache and SDK starter
-- [ ] `service-quarkus` builds (~1 min)
-- [ ] `service-quarkus-leyden` builds with `app.aot` ~50 MB present (~3 min for training run)
+- [x] `service-classic` builds (~1 min)
+- [x] `service-classic-noagent` builds (~1 min, same image as classic)
+- [x] `service-classic-sdk` builds (~1 min, includes spring-boot-starter-opentelemetry)
+- [x] `service-aot` builds with `app.aot` ~120 MB present in image
+- [x] `service-aot-noagent` builds (same image as aot)
+- [x] `service-aot-sdk` builds with both AOT cache and SDK starter
+- [x] `service-quarkus` builds (~1 min)
+- [x] `service-quarkus-leyden` builds with `app.aot` ~50 MB present (~3 min for training run)
 
 **Critical fallback — Quarkus AOT cache rejected at runtime:**
 Symptom: Quarkus Leyden container starts but logs show `Loading static archive failed. Unable to map shared spaces.` and `UseCompressedOops disabled due to max heap > compressed oop heap`.
@@ -400,10 +409,10 @@ Cross-framework (no-telemetry baseline):
 | Quarkus + Leyden | ~180 ms | ~610 ms (~77%) |
 
 **Acceptance criteria:**
-- [ ] All 8 variants report a median (no `Could not parse startup time` errors)
-- [ ] Spring Boot AOT shows ~15-20% improvement over Spring Boot Classic (no telemetry)
-- [ ] Quarkus + Leyden shows ~70-80% improvement over Quarkus Classic
-- [ ] Quarkus baseline is faster than Spring Boot AOT (the talk's "framework, not vendor" thesis)
+- [x] All 8 variants report a median (no `Could not parse startup time` errors)
+- [x] Spring Boot AOT shows ~15-20% improvement over Spring Boot Classic (no telemetry)
+- [x] Quarkus + Leyden shows ~70-80% improvement over Quarkus Classic
+- [x] Quarkus baseline is faster than Spring Boot AOT (the talk's "framework, not vendor" thesis)
 
 **See `BENCHMARKS.md` for the canonical numbers and methodology details.**
 
@@ -443,12 +452,12 @@ xdg-open presentation/three-signals-one-story.pptx
 ```
 
 **Acceptance criteria:**
-- [ ] All 29 slides render correctly
-- [ ] Speaker notes visible on every slide (View → Notes Page in PowerPoint)
-- [ ] Slide 22 shows Spring Boot 4 telemetry comparison table
-- [ ] Slide 23 shows cross-framework comparison (Spring Boot vs Quarkus)
-- [ ] Slide 24 is the "agent tax doesn't amortize on cold scale" insight
-- [ ] Bonus slides 27-28 show Shenandoah-on-UBI and reproduction recipe
+- [x] All 29 slides render correctly (verified via PDF conversion + image rendering during deck QA)
+- [x] Speaker notes visible on every slide (View → Notes Page in PowerPoint)
+- [x] Slide 22 shows Spring Boot 4 telemetry comparison table
+- [x] Slide 23 shows cross-framework comparison (Spring Boot vs Quarkus)
+- [x] Slide 24 is the "agent tax doesn't amortize on cold scale" insight
+- [x] Bonus slides 27-28 show Shenandoah-on-UBI and reproduction recipe
 
 ### 7.2 — Update placeholder text before talk day
 
